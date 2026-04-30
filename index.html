@@ -29,25 +29,6 @@
       touch-action: manipulation;
     }
 
-    /* ── Portrait gate ── */
-    #portrait-gate {
-      position: fixed; inset: 0; z-index: 999;
-      background: var(--bg);
-      display: none;
-      flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 16px; text-align: center;
-    }
-    #portrait-gate .pg-icon { font-size: 52px; animation: rotate-hint 2s ease-in-out infinite; }
-    @keyframes rotate-hint {
-      0%, 100% { transform: rotate(0deg); }
-      40%, 60% { transform: rotate(90deg); }
-    }
-    #portrait-gate p { font-size: 17px; color: var(--dim); line-height: 1.7; }
-    @media (orientation: portrait) {
-      #portrait-gate { display: flex; }
-      .screen        { display: none !important; }
-    }
 
     /* ── Flash overlay ── */
     #flash { position: fixed; inset: 0; pointer-events: none; z-index: 200; opacity: 0; }
