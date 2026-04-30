@@ -288,12 +288,6 @@
 </head>
 <body>
 
-<!-- Portrait gate -->
-<div id="portrait-gate">
-  <div class="pg-icon">📱</div>
-  <p>기기를 가로로<br>돌려주세요</p>
-</div>
-
 <!-- Flash -->
 <div id="flash"></div>
 
@@ -474,32 +468,6 @@ function render() {
       mainBtn.textContent = st.running ? '일시정지' : '재개';
       mainBtn.className = 'btn-main';
       break;
-    case 'wait-brk':
-      badge.textContent = '경기 종료'; badge.className = 'mode-badge';
-      sRow.className = 'status-row';
-      sPeriod.textContent = `${pname(st.period)} 종료`;
-      sNext.textContent = '버튼을 눌러 쉬는시간 시작';
-      mainBtn.textContent = `쉬는시간 시작 (${cfg.brkMin}분)`;
-      mainBtn.className = 'btn-main';
-      break;
-    case 'brk':
-      badge.textContent = '쉬는시간'; badge.className = 'mode-badge brk';
-      sRow.className = 'status-row brk';
-      sPeriod.textContent = `${pname(st.period + 1)} 준비 중`;
-      sPeriod.textContent = '경기 준비';
-      sNext.textContent = `${cfg.gameMin}분 · 쉬는시간 ${cfg.brkMin}분`;
-      mainBtn.textContent = '시작'; mainBtn.className = 'btn-main';
-      break;
-
-    case 'game':
-      badge.textContent = '경기중'; badge.className = 'mode-badge';
-      sRow.className = 'status-row';
-      sPeriod.textContent = `${st.period} / ${cfg.periods}경기`;
-      sNext.textContent = st.period < cfg.periods ? `다음: 쉬는시간 ${cfg.brkMin}분` : '마지막 경기';
-      mainBtn.textContent = st.running ? '일시정지' : '재개';
-      mainBtn.className = 'btn-main';
-      break;
-
     case 'wait-brk':
       badge.textContent = '경기 종료'; badge.className = 'mode-badge';
       sRow.className = 'status-row';
