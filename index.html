@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#090909">
+  <title>풋살 타이머</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --green:  #00e676;
+      --yellow: #ffca28;
+      --red:    #ff1744;
+      --bg:     #090909;
+      --panel:  #111827;
+      --surf:   #1f2937;
+      --dim:    #6b7280;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--bg);
+      color: #fff;
+      font-family: -apple-system, 'Segoe UI', sans-serif;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    /* ── Portrait gate ── */
+    #portrait-gate {
+      position: fixed; inset: 0; z-index: 999;
+      background: var(--bg);
+      display: none;
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 16px; text-align: center;
+    }
+    #portrait-gate .pg-icon { font-size: 52px; animation: rotate-hint 2s ease-in-out infinite; }
+    @keyframes rotate-hint {
+      0%, 100% { transform: rotate(0deg); }
+      40%, 60% { transform: rotate(90deg); }
+    }
+    #portrait-gate p { font-size: 17px; color: var(--dim); line-height: 1.7; }
+    @media (orientation: portrait) {
+      #portrait-gate { display: flex; }
+      .screen        { display: none !important; }
+    }
+
+    /* ── Flash overlay ── */
+    #flash { position: fixed; inset: 0; pointer-events: none; z-index: 200; opacity: 0; }
+    @keyframes do-flash {
+      0%,100%  { opacity: 0; }
+      20%,60%  { opacity: .88; }
+      40%,80%  { opacity: 0; }
+    }
+    #flash.flash-red   { background: #ff1744; animation: do-flash 1s ease; }
+    #flash.flash-green { background: #00e676; animation: do-flash 1s ease; }
+    #flash.flash-white { background: #ffffff; animation: do-flash .7s ease; }
+
+    /* ── End overlay ── */
+    #end-overlay {
+      position: fixed; inset: 0; z-index: 150;
+      background: rgba(0,0,0,.92);
+      display: flex; flex-direction: row;
+      align-items: center; justify-content: center; gap: 36px;
+      opacity: 0; pointer-events: none; transition: opacity .4s;
+    }
+    #end-overlay.show { opacity: 1; pointer-events: all; }
+    .end-trophy  { font-size: 60px; }
+    .end-info    { display: flex; flex-direction: column; gap: 6px; }
+    .end-title   { font-size: 26px; font-weight: 900; letter-spacing: 2px; }
+    .end-sub     { color: var(--dim); font-size: 14px; }
+    .btn-new {
+      padding: 14px 30px;
+      background: var(--green); color: #000;
+      border: none; border-radius: 14px;
+      font-size: 16px; font-weight: 800; cursor: pointer;
+    }
+    .btn-new:active { opacity: .8; }
+
+    /* ── Confirm dialog ── */
+    #confirm-overlay {
+      position: fixed; inset: 0; z-index: 180;
+      background: rgba(0,0,0,.78);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    #confirm-overlay.show { opacity: 1; pointer-events: all; }
+    .confirm-box {
+      background: var(--panel); border-radius: 20px;
+      padding: 28px 28px 22px;
+      width: min(320px, 88vw);
+      display: flex; flex-direction: column; gap: 10px;
+      text-align: center;
+      transform: scale(.92); transition: transform .2s;
+    }
+    #confirm-overlay.show .confirm-box { transform: scale(1); }
+    .confirm-icon  { font-size: 32px; }
+    .confirm-title { font-size: 17px; font-weight: 800; }
+    .confirm-sub   { font-size: 12px; color: var(--dim); margin-bottom: 4px; }
+    .confirm-btns  { display: flex; gap: 10px; }
+    .confirm-cancel, .confirm-ok {
+      flex: 1; padding: 13px;
+      border: none; border-radius: 12px;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+    }
+    .confirm-cancel { background: var(--surf); color: #9ca3af; }
+    .confirm-ok     { background: var(--red);  color: #fff; }
+    .confirm-cancel:active, .confirm-ok:active { opacity: .78; }
+
+    /* ── Settings sheet ── */
+    .settings-backdrop {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(0,0,0,.7);
+      opacity: 0; pointer-events: none; transition: opacity .3s;
+    }
+    .settings-backdrop.open { opacity: 1; pointer-events: all; }
+
+    .settings-sheet {
+      position: fixed; bottom: 0; left: 50%; z-index: 101;
+      transform: translateX(-50%) translateY(100%);
+      background: var(--panel);
+      border-radius: 22px 22px 0 0;
+      padding: 10px 22px 28px;
+      width: 100%; max-width: 600px;
+      transition: transform .35s cubic-bezier(.32,.72,0,1);
+      max-height: 90vh; overflow-y: auto;
+    }
+    .settings-sheet.open { transform: translateX(-50%) translateY(0); }
+
+    .sheet-handle {
+      width: 36px; height: 4px; background: #374151; border-radius: 2px;
+      margin: 0 auto 16px;
+    }
+    .sheet-title { font-size: 16px; font-weight: 800; text-align: center; margin-bottom: 16px; }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 20px;
+    }
+    .setting-row {
+      display: flex; align-items: center;
+      justify-content: space-between; gap: 10px;
+      padding: 12px 0;
+      border-bottom: 1px solid #1f2937;
+    }
+    .setting-row.span2 { grid-column: 1 / -1; }
+    .setting-info .s-name { font-size: 14px; font-weight: 600; }
+    .setting-info .s-desc { font-size: 11px; color: var(--dim); margin-top: 1px; }
+
+    .stepper {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--bg); border-radius: 10px; padding: 5px 8px;
+      flex-shrink: 0;
+    }
+    .stepper button {
+      width: 30px; height: 30px;
+      background: var(--surf); border: none; color: #fff;
+      border-radius: 7px; font-size: 18px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .stepper button:active { background: #374151; }
+    .stepper-val {
+      min-width: 34px; text-align: center;
+      font-size: 18px; font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .toggle { position: relative; width: 46px; height: 25px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle-track {
+      position: absolute; inset: 0;
+      background: #374151; border-radius: 25px;
+      cursor: pointer; transition: background .25s;
+    }
+    .toggle-track::before {
+      content: ''; position: absolute;
+      width: 19px; height: 19px; top: 3px; left: 3px;
+      background: #fff; border-radius: 50%; transition: transform .25s;
+    }
+    .toggle input:checked ~ .toggle-track { background: var(--green); }
+    .toggle input:checked ~ .toggle-track::before { transform: translateX(21px); }
+
+    .btn-apply {
+      width: 100%; margin-top: 16px; padding: 14px;
+      background: var(--green); color: #000;
+      border: none; border-radius: 12px;
+      font-size: 16px; font-weight: 800; cursor: pointer;
+    }
+    .btn-apply:active { opacity: .8; }
+
+    .screen {
+      height: 100vh;
+      height: 100dvh;
+      display: grid;
+      grid-template-rows: 42px 1fr 58px;
+    }
+
+    /* ── Top bar ── */
+    .top-bar {
+      display: flex; align-items: center;
+      padding: 0 14px; gap: 12px;
+    }
+    .app-name {
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 3px; color: var(--dim);
+      text-transform: uppercase; flex-shrink: 0;
+    }
+    .period-track {
+      flex: 1;
+      display: flex; align-items: center; gap: 6px;
+      overflow: hidden;
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #2d3748; flex-shrink: 0;
+      transition: background .3s, box-shadow .3s;
+    }
+    .dot.active { background: var(--green); box-shadow: 0 0 7px var(--green); }
+    .dot.done   { background: #374151; }
+    .period-text {
+      font-size: 12px; font-weight: 700; color: var(--dim);
+      font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+    .btn-settings {
+      background: var(--surf); border: none; color: #9ca3af;
+      width: 34px; height: 34px; border-radius: 9px;
+      font-size: 15px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .btn-settings:active { background: #374151; }
+
+    /* ── Timer center ── */
+    .timer-wrap {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 2px; overflow: hidden;
+      padding: 0 8px;
+    }
+
+    .mode-badge {
+      font-size: 10px; font-weight: 800;
+      letter-spacing: 5px; text-transform: uppercase;
+      color: var(--green); transition: color .3s;
+      min-height: 13px;
+    }
+    .mode-badge.brk { color: var(--yellow); }
+
+    /* THE BIG NUMBER */
+    .timer-digits {
+      font-size: min(50dvh, 28vw);
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      font-family: 'Courier New', monospace;
+      letter-spacing: -3px;
+      line-height: 1;
+      color: #fff;
+      transition: color .2s, text-shadow .2s;
+    }
+    .timer-digits.warn {
+      color: var(--red);
+      text-shadow: 0 0 50px rgba(255,23,68,.55);
+      animation: beat .85s ease-in-out infinite;
+    }
+    @keyframes beat {
+      0%,100% { transform: scale(1); }
+      50%      { transform: scale(1.018); }
+    }
+
+    .status-row {
+      display: flex; gap: 12px; align-items: center;
+      font-size: 12px; color: var(--dim); min-height: 16px;
+    }
+    .s-period { font-weight: 600; color: #9ca3af; transition: color .3s; }
+    .status-row.brk .s-period { color: var(--yellow); }
+
+    /* ── Bottom controls ── */
+    .bottom-bar {
+      display: flex; align-items: center;
+      padding: 0 14px; gap: 10px;
+    }
+    .btn-reset {
+      height: 42px; padding: 0 18px;
+      background: var(--surf); color: #9ca3af;
+      border: none; border-radius: 11px;
+      font-size: 19px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .btn-reset:active { background: #374151; }
+    .btn-main {
+      flex: 1; height: 42px;
+      border: none; border-radius: 11px;
+      font-size: 16px; font-weight: 800; cursor: pointer;
+      background: var(--green); color: #000;
+      transition: background .3s;
+      letter-spacing: .5px;
+    }
+    .btn-main.brk  { background: var(--yellow); }
+    .btn-main:active { opacity: .75; }
+  </style>
+</head>
+<body>
+
+<!-- Portrait gate -->
+<div id="portrait-gate">
+  <div class="pg-icon">📱</div>
+  <p>기기를 가로로<br>돌려주세요</p>
+</div>
+
+<!-- Flash -->
+<div id="flash"></div>
+
+<!-- End overlay -->
+<div id="end-overlay">
+  <div class="end-trophy">🏆</div>
+  <div class="end-info">
+    <div class="end-title">경기 종료</div>
+    <div class="end-sub">수고하셨습니다!</div>
+  </div>
+  <button class="btn-new" onclick="resetAll()">새 경기 시작</button>
+</div>
+
+<!-- Confirm reset -->
+<div id="confirm-overlay">
+  <div class="confirm-box">
+    <div class="confirm-icon">↺</div>
+    <div class="confirm-title">초기화 하시겠습니까?</div>
+    <div class="confirm-sub">진행 중인 경기가 모두 초기화됩니다</div>
+    <div class="confirm-btns">
+      <button class="confirm-cancel" onclick="closeConfirm()">취소</button>
+      <button class="confirm-ok"     onclick="doReset()">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings -->
+<div class="settings-backdrop" id="settings-backdrop" onclick="closeSettings()"></div>
+<div class="settings-sheet"   id="settings-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">타이머 설정</div>
+  <div class="settings-grid">
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="s-name">경기 시간</div>
+        <div class="s-desc">분 단위</div>
+      </div>
+      <div class="stepper">
+        <button onclick="adj('game',-1)">−</button>
+        <div class="stepper-val" id="val-game">20</div>
+        <button onclick="adj('game',+1)">＋</button>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="s-name">쉬는 시간</div>
+        <div class="s-desc">분 단위</div>
+      </div>
+      <div class="stepper">
+        <button onclick="adj('brk',-1)">−</button>
+        <div class="stepper-val" id="val-brk">5</div>
+        <button onclick="adj('brk',+1)">＋</button>
+      </div>
+    </div>
+
+    <div class="setting-row span2">
+      <div class="setting-info">
+        <div class="s-name">경기 수</div>
+        <div class="s-desc">전반·후반 등, 제한 없음</div>
+      </div>
+      <div class="stepper">
+        <button onclick="adj('periods',-1)">−</button>
+        <div class="stepper-val" id="val-periods">2</div>
+        <button onclick="adj('periods',+1)">＋</button>
+      </div>
+    </div>
+
+    <div class="setting-row span2">
+      <div class="setting-info">
+        <div class="s-name">자동 쉬는시간</div>
+        <div class="s-desc">경기 종료 후 자동으로 쉬는시간 시작</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="toggle-auto" checked>
+        <div class="toggle-track"></div>
+      </label>
+    </div>
+
+  </div>
+  <button class="btn-apply" onclick="applySettings()">적용</button>
+</div>
+
+<!-- MAIN SCREEN -->
+<div class="screen">
+
+  <div class="top-bar">
+    <div class="app-name">⚽ Futsal</div>
+    <div class="period-track" id="period-track"></div>
+    <button class="btn-settings" onclick="openSettings()">⚙</button>
+  </div>
+
+  <div class="timer-wrap">
+    <div class="mode-badge" id="mode-badge"></div>
+    <div class="timer-digits" id="timer-digits">20:00</div>
+    <div class="status-row" id="status-row">
+      <span class="s-period" id="s-period">경기 준비</span>
+      <span class="s-next"   id="s-next"></span>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <button class="btn-reset" onclick="handleReset()">↺</button>
+    <button class="btn-main"  onclick="handleMain()" id="main-btn">시작</button>
+  </div>
+
+</div>
+
+<script>
+let cfg = { gameMin: 20, brkMin: 5, periods: 2, autoBreak: true };
+function loadCfg() {
+  try { cfg = { ...cfg, ...JSON.parse(localStorage.getItem('futsal-cfg') || '{}') }; } catch(e) {}
+}
+function saveCfg() { localStorage.setItem('futsal-cfg', JSON.stringify(cfg)); }
+let st = { mode: 'idle', period: 1, timeLeft: 0, running: false, tid: null };
+let actx = null;
+function initAudio() {
+  if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  if (actx.state === 'suspended') actx.resume();
+}
+function beep(freq, dur, vol, type, delay) {
+  if (!actx) return;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.connect(g); g.connect(actx.destination);
+  o.type = type || 'square'; o.frequency.value = freq;
+  const t = actx.currentTime + (delay || 0);
+  g.gain.setValueAtTime(vol || 1, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+function soundEnd() {
+  beep(880, .22, 1,   'square',   0);
+  beep(880, .22, 1,   'square',   .35);
+  beep(660, .85, 1,   'sawtooth', .70);
+}
+function soundBrkEnd() {
+  beep(523, .18, .7, 'sine', 0);
+  beep(659, .18, .7, 'sine', .22);
+  beep(784, .4,  .7, 'sine', .44);
+}
+function soundWarn() { beep(440, .07, .4, 'sine'); }
+
+function flash(type) {
+  const el = document.getElementById('flash');
+  el.className = '';
+  void el.offsetWidth;
+  el.className = 'flash-' + type;
+  el.addEventListener('animationend', () => el.className = '', { once: true });
+}
+const vibe = p => navigator.vibrate && navigator.vibrate(p);
+const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+const PNAMES = ['전반','후반','3경기','4경기','5경기','6경기','7경기','8경기','9경기','10경기'];
+const pname = n => cfg.periods === 1 ? '경기' : (PNAMES[n-1] || `${n}경기`);
+function render() {
+  const digits  = document.getElementById('timer-digits');
+  const badge   = document.getElementById('mode-badge');
+  const mainBtn = document.getElementById('main-btn');
+  const sRow    = document.getElementById('status-row');
+  const sPeriod = document.getElementById('s-period');
+  const sNext   = document.getElementById('s-next');
+  digits.textContent = fmt(st.timeLeft);
+  const warn = st.running && st.timeLeft <= 5 && st.timeLeft > 0;
+  digits.className = 'timer-digits' + (warn ? ' warn' : '');
+  switch (st.mode) {
+    case 'idle':
+      badge.textContent = ''; badge.className = 'mode-badge';
+      sRow.className = 'status-row';
+      sPeriod.textContent = '경기 준비';
+      sNext.textContent = `${cfg.gameMin}분 · 쉬는시간 ${cfg.brkMin}분`;
+      mainBtn.textContent = '시작'; mainBtn.className = 'btn-main';
+      break;
+    case 'game':
+      badge.textContent = '경기중'; badge.className = 'mode-badge';
+      sRow.className = 'status-row';
+      sPeriod.textContent = `${st.period} / ${cfg.periods}경기`;
+      sNext.textContent = st.period < cfg.periods ? `다음: 쉬는시간 ${cfg.brkMin}분` : '마지막 경기';
+      mainBtn.textContent = st.running ? '일시정지' : '재개';
+      mainBtn.className = 'btn-main';
+      break;
+    case 'wait-brk':
+      badge.textContent = '경기 종료'; badge.className = 'mode-badge';
+      sRow.className = 'status-row';
+      sPeriod.textContent = `${pname(st.period)} 종료`;
+      sNext.textContent = '버튼을 눌러 쉬는시간 시작';
+      mainBtn.textContent = `쉬는시간 시작 (${cfg.brkMin}분)`;
+      mainBtn.className = 'btn-main';
+      break;
+    case 'brk':
+      badge.textContent = '쉬는시간'; badge.className = 'mode-badge brk';
+      sRow.className = 'status-row brk';
+      sPeriod.textContent = `${pname(st.period + 1)} 준비 중`;
+      sPeriod.textContent = '경기 준비';
+      sNext.textContent = `${cfg.gameMin}분 · 쉬는시간 ${cfg.brkMin}분`;
+      mainBtn.textContent = '시작'; mainBtn.className = 'btn-main';
+      break;
+
+    case 'game':
+      badge.textContent = '경기중'; badge.className = 'mode-badge';
+      sRow.className = 'status-row';
+      sPeriod.textContent = `${st.period} / ${cfg.periods}경기`;
+      sNext.textContent = st.period < cfg.periods ? `다음: 쉬는시간 ${cfg.brkMin}분` : '마지막 경기';
+      mainBtn.textContent = st.running ? '일시정지' : '재개';
+      mainBtn.className = 'btn-main';
+      break;
+
+    case 'wait-brk':
+      badge.textContent = '경기 종료'; badge.className = 'mode-badge';
+      sRow.className = 'status-row';
+      sPeriod.textContent = `${pname(st.period)} 종료`;
+      sNext.textContent = '버튼을 눌러 쉬는시간 시작';
+      mainBtn.textContent = `쉬는시간 시작 (${cfg.brkMin}분)`;
+      mainBtn.className = 'btn-main';
+      break;
+    case 'brk':
+      badge.textContent = '쉬는시간'; badge.className = 'mode-badge brk';
+      sRow.className = 'status-row brk';
+      sPeriod.textContent = `${pname(st.period + 1)} 준비 중`;
+      sNext.textContent = `${cfg.gameMin}분`;
+      mainBtn.textContent = st.running ? '일시정지' : '재개';
+      mainBtn.className = 'btn-main brk';
+      break;
+  }
+  renderTrack();
+}
+
+function renderTrack() {
+  const wrap = document.getElementById('period-track');
+  wrap.innerHTML = '';
+  if (cfg.periods <= 12) {
+    for (let i = 1; i <= cfg.periods; i++) {
+      const d = document.createElement('div');
+      d.className = 'dot'
+        + (i < st.period ? ' done' : '')
+        + (i === st.period && st.mode !== 'idle' ? ' active' : '');
+      wrap.appendChild(d);
+    }
+  } else {
+    const txt = document.createElement('span');
+    txt.className = 'period-text';
+    txt.textContent = st.mode === 'idle'
+      ? `총 ${cfg.periods}경기`
+      : `${st.period} / ${cfg.periods}`;
+    wrap.appendChild(txt);
+  }
+}
+
+function startTick() {
+  clearInterval(st.tid);
+  st.tid = setInterval(tick, 1000);
+}
+function tick() {
+  st.timeLeft--;
+  if (st.timeLeft <= 10 && st.timeLeft > 0) soundWarn();
+  if (st.timeLeft <= 0) { st.timeLeft = 0; onExpire(); }
+  else render();
+}
+function onExpire() {
+  clearInterval(st.tid);
+  st.running = false;
+
+  if (st.mode === 'game') {
+    soundEnd(); flash('red'); vibe([300,100,300,100,500]);
+    render();
+    const last = st.period >= cfg.periods;
+    if (last) {
+      setTimeout(() => {
+        st.mode = 'done';
+        document.getElementById('end-overlay').classList.add('show');
+      }, 1100);
+    } else if (cfg.autoBreak) {
+      setTimeout(beginBrk, 1100);
+    } else {
+      setTimeout(() => {
+        st.mode = 'wait-brk';
+        st.timeLeft = cfg.brkMin * 60;
+        render();
+      }, 1100);
+    }
+  } else if (st.mode === 'brk') {
+    soundBrkEnd(); flash('green'); vibe([100,60,100]);
+    render();
+    setTimeout(() => beginGame(st.period + 1), 1100);
+  }
+}
+
+function beginGame(period) {
+  st.mode = 'game'; st.period = period;
+  st.timeLeft = cfg.gameMin * 60;
+  st.running = true; startTick(); render();
+}
+
+function beginBrk() {
+  st.mode = 'brk';
+  st.timeLeft = cfg.brkMin * 60;
+  st.running = true; startTick(); render();
+}
+
+function handleMain() {
+  initAudio();
+  if (st.mode === 'idle')     { beginGame(1);   return; }
+  if (st.mode === 'wait-brk') { beginBrk();     return; }
+  if (st.running) { clearInterval(st.tid); st.running = false; }
+  else            { st.running = true; startTick(); }
+  render();
+}
+
+function handleReset() {
+  if (st.mode === 'idle') return;
+  if (st.running) { clearInterval(st.tid); st.running = false; }
+  document.getElementById('confirm-overlay').classList.add('show');
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('show');
+}
+
+function doReset() {
+  document.getElementById('confirm-overlay').classList.remove('show');
+  clearInterval(st.tid);
+  st = { mode: 'idle', period: 1, timeLeft: cfg.gameMin * 60, running: false, tid: null };
+  document.getElementById('end-overlay').classList.remove('show');
+  render();
+}
+
+function resetAll() { doReset(); }
+
+function openSettings() {
+  if (st.running) { clearInterval(st.tid); st.running = false; render(); }
+  document.getElementById('val-game').textContent    = cfg.gameMin;
+  document.getElementById('val-brk').textContent     = cfg.brkMin;
+  document.getElementById('val-periods').textContent = cfg.periods;
+  document.getElementById('toggle-auto').checked     = cfg.autoBreak;
+  document.getElementById('settings-backdrop').classList.add('open');
+  document.getElementById('settings-sheet').classList.add('open');
+}
+
+function closeSettings() {
+  document.getElementById('settings-backdrop').classList.remove('open');
+  document.getElementById('settings-sheet').classList.remove('open');
+}
+
+function adj(key, delta) {
+  const map = { game: 'gameMin', brk: 'brkMin', periods: 'periods' };
+  cfg[map[key]] = Math.max(1, cfg[map[key]] + delta);
+  document.getElementById('val-' + key).textContent = cfg[map[key]];
+}
+
+function applySettings() {
+  cfg.autoBreak = document.getElementById('toggle-auto').checked;
+  saveCfg();
+  closeSettings();
+  if (st.mode === 'idle') st.timeLeft = cfg.gameMin * 60;
+  render();
+}
+
+loadCfg();
+st.timeLeft = cfg.gameMin * 60;
+render();
+</script>
+</body>
+</html>
