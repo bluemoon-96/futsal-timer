@@ -5,6 +5,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#090909">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="풋살 타이머">
   <title>풋살 타이머</title>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -234,10 +239,10 @@
     }
 
     .mode-badge {
-      font-size: 10px; font-weight: 800;
-      letter-spacing: 5px; text-transform: uppercase;
+      font-size: 15px; font-weight: 800;
+      letter-spacing: 3px; text-transform: uppercase;
       color: var(--green); transition: color .3s;
-      min-height: 13px;
+      min-height: 18px;
     }
     .mode-badge.brk { color: var(--yellow); }
 
@@ -264,7 +269,7 @@
 
     .status-row {
       display: flex; gap: 12px; align-items: center;
-      font-size: 12px; color: var(--dim); min-height: 16px;
+      font-size: 17px; color: var(--dim); min-height: 22px;
     }
     .s-period { font-weight: 600; color: #9ca3af; transition: color .3s; }
     .status-row.brk .s-period { color: var(--yellow); }
@@ -430,8 +435,9 @@ function loadCfg() {
 function saveCfg() { localStorage.setItem('futsal-cfg', JSON.stringify(cfg)); }
 
 // ── State ─────────────────────────────────────────────────
-// mode: idle | game | wait-brk | brk | done
+// mode: idle | game | wait-brk | brk | wait-game | done
 let st = { mode: 'idle', period: 1, timeLeft: 0, running: false, tid: null };
+let transitionTid = null; // 경기/쉬는시간 전환 애니메이션 1.1초 잠금
 
 // ── Audio ─────────────────────────────────────────────────
 let actx = null;
@@ -532,8 +538,8 @@ function render() {
       break;
 
     case 'wait-game':
-      badge.textContent = '쉬는시간 종료'; badge.className = 'mode-badge';
-      sRow.className = 'status-row';
+      badge.textContent = '쉬는시간 종료'; badge.className = 'mode-badge brk';
+      sRow.className = 'status-row brk';
       sPeriod.textContent = `${st.period + 1}경기 준비`;
       sNext.textContent = '버튼을 눌러 경기 시작';
       mainBtn.textContent = `${st.period + 1}경기 시작 (${cfg.gameMin}분)`;
@@ -541,9 +547,10 @@ function render() {
       break;
   }
 
-  const activeMode = ['game', 'brk', 'wait-brk', 'wait-game'].includes(st.mode);
-  document.getElementById('skip-btn').classList.toggle('hidden', !activeMode);
-  document.getElementById('prev-btn').classList.toggle('hidden', !activeMode);
+  const prevVisible = ['game', 'brk', 'wait-brk', 'wait-game'].includes(st.mode);
+  const skipVisible = ['game', 'brk', 'wait-brk', 'wait-game'].includes(st.mode);
+  document.getElementById('prev-btn').classList.toggle('hidden', !prevVisible);
+  document.getElementById('skip-btn').classList.toggle('hidden', !skipVisible);
 
   renderTrack();
 }
@@ -603,14 +610,16 @@ function onExpire() {
     const last = st.period >= cfg.periods;
     if (last) {
       releaseWakeLock();
-      setTimeout(() => {
+      transitionTid = setTimeout(() => {
+        transitionTid = null;
         st.mode = 'done';
         document.getElementById('end-overlay').classList.add('show');
       }, 1100);
     } else if (cfg.autoBreak) {
-      setTimeout(beginBrk, 1100);
+      transitionTid = setTimeout(() => { transitionTid = null; beginBrk(); }, 1100);
     } else {
-      setTimeout(() => {
+      transitionTid = setTimeout(() => {
+        transitionTid = null;
         st.mode = 'wait-brk';
         st.timeLeft = cfg.brkMin * 60;
         render();
@@ -620,9 +629,10 @@ function onExpire() {
     soundBrkEnd(); flash('green'); vibe([100,60,100]);
     render();
     if (cfg.autoBreak) {
-      setTimeout(() => beginGame(st.period + 1), 1100);
+      transitionTid = setTimeout(() => { transitionTid = null; beginGame(st.period + 1); }, 1100);
     } else {
-      setTimeout(() => {
+      transitionTid = setTimeout(() => {
+        transitionTid = null;
         st.mode = 'wait-game';
         st.timeLeft = cfg.gameMin * 60;
         render();
@@ -657,6 +667,7 @@ function handleMain() {
 }
 
 function handlePrev() {
+  if (transitionTid !== null) return;
   if (st.mode === 'idle') return;
   initAudio();
   clearInterval(st.tid);
@@ -697,12 +708,33 @@ function handlePrev() {
 }
 
 function handleSkip() {
+  if (transitionTid !== null) return;
   initAudio();
+
   if (st.mode === 'game' || st.mode === 'brk') {
     clearInterval(st.tid);
     st.running = false;
-    st.timeLeft = 0;
-    onExpire();
+    if (st.mode === 'game') {
+      if (st.period >= cfg.periods) {
+        releaseWakeLock();
+        st.mode = 'done';
+        document.getElementById('end-overlay').classList.add('show');
+      } else if (cfg.autoBreak) {
+        beginBrk();
+      } else {
+        st.mode = 'wait-brk';
+        st.timeLeft = cfg.brkMin * 60;
+        render();
+      }
+    } else {
+      if (cfg.autoBreak) {
+        beginGame(st.period + 1);
+      } else {
+        st.mode = 'wait-game';
+        st.timeLeft = cfg.gameMin * 60;
+        render();
+      }
+    }
   } else if (st.mode === 'wait-brk') {
     if (cfg.autoBreak) {
       beginGame(st.period + 1);
@@ -731,6 +763,7 @@ function closeConfirm() {
 function doReset() {
   document.getElementById('confirm-overlay').classList.remove('show');
   clearInterval(st.tid);
+  clearTimeout(transitionTid); transitionTid = null;
   releaseWakeLock();
   st = { mode: 'idle', period: 1, timeLeft: cfg.gameMin * 60, running: false, tid: null };
   document.getElementById('end-overlay').classList.remove('show');
@@ -783,6 +816,9 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // ── Boot ──────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js');
+}
 loadCfg();
 st.timeLeft = cfg.gameMin * 60;
 render();
