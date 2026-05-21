@@ -381,8 +381,8 @@
 
     <div class="setting-row span2">
       <div class="setting-info">
-        <div class="s-name">자동 쉬는시간</div>
-        <div class="s-desc">경기 종료 후 자동으로 쉬는시간 시작</div>
+        <div class="s-name">자동 진행</div>
+        <div class="s-desc">경기↔쉬는시간 자동 전환</div>
       </div>
       <label class="toggle">
         <input type="checkbox" id="toggle-auto" checked>
@@ -530,15 +530,20 @@ function render() {
       mainBtn.textContent = st.running ? '일시정지' : '재개';
       mainBtn.className = 'btn-main brk';
       break;
+
+    case 'wait-game':
+      badge.textContent = '쉬는시간 종료'; badge.className = 'mode-badge';
+      sRow.className = 'status-row';
+      sPeriod.textContent = `${st.period + 1}경기 준비`;
+      sNext.textContent = '버튼을 눌러 경기 시작';
+      mainBtn.textContent = `${st.period + 1}경기 시작 (${cfg.gameMin}분)`;
+      mainBtn.className = 'btn-main';
+      break;
   }
 
-  const skipBtn = document.getElementById('skip-btn');
-  const skipVisible = st.mode === 'game' || st.mode === 'brk';
-  skipBtn.classList.toggle('hidden', !skipVisible);
-
-  const prevBtn = document.getElementById('prev-btn');
-  const prevVisible = st.mode === 'game' || st.mode === 'brk' || st.mode === 'wait-brk';
-  prevBtn.classList.toggle('hidden', !prevVisible);
+  const activeMode = ['game', 'brk', 'wait-brk', 'wait-game'].includes(st.mode);
+  document.getElementById('skip-btn').classList.toggle('hidden', !activeMode);
+  document.getElementById('prev-btn').classList.toggle('hidden', !activeMode);
 
   renderTrack();
 }
@@ -614,7 +619,15 @@ function onExpire() {
   } else if (st.mode === 'brk') {
     soundBrkEnd(); flash('green'); vibe([100,60,100]);
     render();
-    setTimeout(() => beginGame(st.period + 1), 1100);
+    if (cfg.autoBreak) {
+      setTimeout(() => beginGame(st.period + 1), 1100);
+    } else {
+      setTimeout(() => {
+        st.mode = 'wait-game';
+        st.timeLeft = cfg.gameMin * 60;
+        render();
+      }, 1100);
+    }
   }
 }
 
@@ -635,8 +648,9 @@ function beginBrk() {
 // ── Button handlers ───────────────────────────────────────
 function handleMain() {
   initAudio();
-  if (st.mode === 'idle')     { beginGame(1);   return; }
-  if (st.mode === 'wait-brk') { beginBrk();     return; }
+  if (st.mode === 'idle')      { beginGame(1);              return; }
+  if (st.mode === 'wait-brk') { beginBrk();                return; }
+  if (st.mode === 'wait-game') { beginGame(st.period + 1); return; }
   if (st.running) { clearInterval(st.tid); st.running = false; }
   else            { st.running = true; startTick(); }
   render();
@@ -658,16 +672,23 @@ function handlePrev() {
     }
   } else if (st.mode === 'brk' || st.mode === 'wait-brk') {
     beginGame(st.period);
+  } else if (st.mode === 'wait-game') {
+    beginBrk();
   }
 }
 
 function handleSkip() {
-  if (st.mode !== 'game' && st.mode !== 'brk') return;
   initAudio();
-  clearInterval(st.tid);
-  st.running = false;
-  st.timeLeft = 0;
-  onExpire();
+  if (st.mode === 'game' || st.mode === 'brk') {
+    clearInterval(st.tid);
+    st.running = false;
+    st.timeLeft = 0;
+    onExpire();
+  } else if (st.mode === 'wait-brk') {
+    beginGame(st.period + 1);
+  } else if (st.mode === 'wait-game') {
+    beginGame(st.period + 1);
+  }
 }
 
 function handleReset() {
