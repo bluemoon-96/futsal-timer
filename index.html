@@ -3,7 +3,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#090909">
   <title>풋살 타이머</title>
   <style>
@@ -46,13 +46,13 @@
     #end-overlay {
       position: fixed; inset: 0; z-index: 150;
       background: rgba(0,0,0,.92);
-      display: flex; flex-direction: row;
-      align-items: center; justify-content: center; gap: 36px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 20px;
       opacity: 0; pointer-events: none; transition: opacity .4s;
     }
     #end-overlay.show { opacity: 1; pointer-events: all; }
-    .end-trophy  { font-size: 60px; }
-    .end-info    { display: flex; flex-direction: column; gap: 6px; }
+    .end-trophy  { font-size: 64px; }
+    .end-info    { display: flex; flex-direction: column; gap: 6px; text-align: center; }
     .end-title   { font-size: 26px; font-weight: 900; letter-spacing: 2px; }
     .end-sub     { color: var(--dim); font-size: 14px; }
     .btn-new {
@@ -106,7 +106,7 @@
       transform: translateX(-50%) translateY(100%);
       background: var(--panel);
       border-radius: 22px 22px 0 0;
-      padding: 10px 22px 28px;
+      padding: 10px calc(22px + env(safe-area-inset-right, 0px)) calc(28px + env(safe-area-inset-bottom, 0px)) calc(22px + env(safe-area-inset-left, 0px));
       width: 100%; max-width: 600px;
       transition: transform .35s cubic-bezier(.32,.72,0,1);
       max-height: 90vh; overflow-y: auto;
@@ -140,9 +140,9 @@
       flex-shrink: 0;
     }
     .stepper button {
-      width: 30px; height: 30px;
+      width: 40px; height: 40px;
       background: var(--surf); border: none; color: #fff;
-      border-radius: 7px; font-size: 18px; cursor: pointer;
+      border-radius: 9px; font-size: 20px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
     }
     .stepper button:active { background: #374151; }
@@ -182,13 +182,18 @@
       height: 100vh;
       height: 100dvh;
       display: grid;
-      grid-template-rows: 42px 1fr 58px;
+      grid-template-rows:
+        calc(42px + env(safe-area-inset-top, 0px))
+        1fr
+        calc(58px + env(safe-area-inset-bottom, 0px));
     }
 
     /* ── Top bar ── */
     .top-bar {
-      display: flex; align-items: center;
-      padding: 0 14px; gap: 12px;
+      display: flex; align-items: flex-end;
+      padding: env(safe-area-inset-top, 0px) calc(14px + env(safe-area-inset-right, 0px)) 0 calc(14px + env(safe-area-inset-left, 0px));
+      padding-bottom: 4px;
+      gap: 12px;
     }
     .app-name {
       font-size: 11px; font-weight: 700;
@@ -266,8 +271,9 @@
 
     /* ── Bottom controls ── */
     .bottom-bar {
-      display: flex; align-items: center;
-      padding: 0 14px; gap: 10px;
+      display: flex; align-items: flex-start;
+      padding: 8px calc(14px + env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) calc(14px + env(safe-area-inset-left, 0px));
+      gap: 10px;
     }
     .btn-reset {
       height: 42px; padding: 0 18px;
@@ -408,6 +414,7 @@
 
   <div class="bottom-bar">
     <button class="btn-reset" onclick="handleReset()">↺</button>
+    <button class="btn-skip hidden" onclick="handlePrev()" id="prev-btn">⏮</button>
     <button class="btn-main"  onclick="handleMain()" id="main-btn">시작</button>
     <button class="btn-skip hidden" onclick="handleSkip()" id="skip-btn">⏭</button>
   </div>
@@ -485,7 +492,7 @@ function render() {
   const sNext   = document.getElementById('s-next');
 
   digits.textContent = fmt(st.timeLeft);
-  const warn = st.running && st.timeLeft <= 5 && st.timeLeft > 0;
+  const warn = st.running && st.timeLeft <= 10 && st.timeLeft > 0;
   digits.className = 'timer-digits' + (warn ? ' warn' : '');
 
   switch (st.mode) {
@@ -518,7 +525,7 @@ function render() {
     case 'brk':
       badge.textContent = '쉬는시간'; badge.className = 'mode-badge brk';
       sRow.className = 'status-row brk';
-      sPeriod.textContent = `${pname(st.period + 1)} 준비 중`;
+      sPeriod.textContent = `${st.period + 1}경기 준비 중`;
       sNext.textContent = `${cfg.gameMin}분`;
       mainBtn.textContent = st.running ? '일시정지' : '재개';
       mainBtn.className = 'btn-main brk';
@@ -528,6 +535,10 @@ function render() {
   const skipBtn = document.getElementById('skip-btn');
   const skipVisible = st.mode === 'game' || st.mode === 'brk';
   skipBtn.classList.toggle('hidden', !skipVisible);
+
+  const prevBtn = document.getElementById('prev-btn');
+  const prevVisible = st.mode === 'game' || st.mode === 'brk' || st.mode === 'wait-brk';
+  prevBtn.classList.toggle('hidden', !prevVisible);
 
   renderTrack();
 }
@@ -556,16 +567,25 @@ function renderTrack() {
 }
 
 // ── Timer core ────────────────────────────────────────────
+let endTime = 0;
+
 function startTick() {
   clearInterval(st.tid);
-  st.tid = setInterval(tick, 1000);
+  endTime = Date.now() + st.timeLeft * 1000;
+  st.tid = setInterval(tick, 200);
 }
 
 function tick() {
-  st.timeLeft--;
-  if (st.timeLeft <= 10 && st.timeLeft > 0) soundWarn();
-  if (st.timeLeft <= 0) { st.timeLeft = 0; onExpire(); }
-  else render();
+  const remaining = Math.ceil((endTime - Date.now()) / 1000);
+  if (remaining <= 0 && st.timeLeft > 0) {
+    st.timeLeft = 0;
+    onExpire();
+  } else if (remaining !== st.timeLeft) {
+    const prev = st.timeLeft;
+    st.timeLeft = remaining;
+    if (st.timeLeft <= 10 && st.timeLeft > 0 && st.timeLeft < prev) soundWarn();
+    render();
+  }
 }
 
 function onExpire() {
@@ -577,6 +597,7 @@ function onExpire() {
     render();
     const last = st.period >= cfg.periods;
     if (last) {
+      releaseWakeLock();
       setTimeout(() => {
         st.mode = 'done';
         document.getElementById('end-overlay').classList.add('show');
@@ -601,12 +622,14 @@ function beginGame(period) {
   st.mode = 'game'; st.period = period;
   st.timeLeft = cfg.gameMin * 60;
   st.running = true; startTick(); render();
+  requestWakeLock();
 }
 
 function beginBrk() {
   st.mode = 'brk';
   st.timeLeft = cfg.brkMin * 60;
   st.running = true; startTick(); render();
+  requestWakeLock();
 }
 
 // ── Button handlers ───────────────────────────────────────
@@ -617,6 +640,25 @@ function handleMain() {
   if (st.running) { clearInterval(st.tid); st.running = false; }
   else            { st.running = true; startTick(); }
   render();
+}
+
+function handlePrev() {
+  if (st.mode === 'idle') return;
+  initAudio();
+  clearInterval(st.tid);
+  st.running = false;
+
+  if (st.mode === 'game') {
+    if (st.period === 1) {
+      st = { mode: 'idle', period: 1, timeLeft: cfg.gameMin * 60, running: false, tid: null };
+      render();
+    } else {
+      st.period = st.period - 1;
+      beginBrk();
+    }
+  } else if (st.mode === 'brk' || st.mode === 'wait-brk') {
+    beginGame(st.period);
+  }
 }
 
 function handleSkip() {
@@ -643,6 +685,7 @@ function closeConfirm() {
 function doReset() {
   document.getElementById('confirm-overlay').classList.remove('show');
   clearInterval(st.tid);
+  releaseWakeLock();
   st = { mode: 'idle', period: 1, timeLeft: cfg.gameMin * 60, running: false, tid: null };
   document.getElementById('end-overlay').classList.remove('show');
   render();
@@ -679,6 +722,19 @@ function applySettings() {
   if (st.mode === 'idle') st.timeLeft = cfg.gameMin * 60;
   render();
 }
+
+// ── Wake Lock ─────────────────────────────────────────────
+let wakeLock = null;
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
+}
+function releaseWakeLock() {
+  if (wakeLock) { wakeLock.release(); wakeLock = null; }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && st.running) requestWakeLock();
+});
 
 // ── Boot ──────────────────────────────────────────────────
 loadCfg();
