@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -174,6 +175,9 @@
     }
     .btn-apply:active { opacity: .8; }
 
+    /* ══════════════════════════════════════
+       MAIN LANDSCAPE SCREEN
+    ══════════════════════════════════════ */
     .screen {
       height: 100vh;
       height: 100dvh;
@@ -232,7 +236,7 @@
     }
     .mode-badge.brk { color: var(--yellow); }
 
-    /* THE BIG NUMBER */
+    /* THE BIG NUMBER — fills available vertical space */
     .timer-digits {
       font-size: min(50dvh, 28vw);
       font-weight: 900;
@@ -284,9 +288,21 @@
     }
     .btn-main.brk  { background: var(--yellow); }
     .btn-main:active { opacity: .75; }
+
+    .btn-skip {
+      height: 42px; padding: 0 18px;
+      background: var(--surf); color: #9ca3af;
+      border: none; border-radius: 11px;
+      font-size: 17px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .btn-skip:active { background: #374151; }
+    .btn-skip.hidden { display: none; }
   </style>
 </head>
 <body>
+
 
 <!-- Flash -->
 <div id="flash"></div>
@@ -393,17 +409,24 @@
   <div class="bottom-bar">
     <button class="btn-reset" onclick="handleReset()">↺</button>
     <button class="btn-main"  onclick="handleMain()" id="main-btn">시작</button>
+    <button class="btn-skip hidden" onclick="handleSkip()" id="skip-btn">⏭</button>
   </div>
 
 </div>
 
 <script>
+// ── Config ────────────────────────────────────────────────
 let cfg = { gameMin: 20, brkMin: 5, periods: 2, autoBreak: true };
 function loadCfg() {
   try { cfg = { ...cfg, ...JSON.parse(localStorage.getItem('futsal-cfg') || '{}') }; } catch(e) {}
 }
 function saveCfg() { localStorage.setItem('futsal-cfg', JSON.stringify(cfg)); }
+
+// ── State ─────────────────────────────────────────────────
+// mode: idle | game | wait-brk | brk | done
 let st = { mode: 'idle', period: 1, timeLeft: 0, running: false, tid: null };
+
+// ── Audio ─────────────────────────────────────────────────
 let actx = null;
 function initAudio() {
   if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
@@ -419,18 +442,22 @@ function beep(freq, dur, vol, type, delay) {
   g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   o.start(t); o.stop(t + dur + 0.02);
 }
+// 경기 종료: "삐- 삐- 삐이이이이" (전자 호각)
 function soundEnd() {
   beep(880, .22, 1,   'square',   0);
   beep(880, .22, 1,   'square',   .35);
   beep(660, .85, 1,   'sawtooth', .70);
 }
+// 쉬는시간 종료: "도-미-솔" 3음 상승 (경쾌한 재개 신호)
 function soundBrkEnd() {
   beep(523, .18, .7, 'sine', 0);
   beep(659, .18, .7, 'sine', .22);
   beep(784, .4,  .7, 'sine', .44);
 }
+// 마지막 10초: 1초마다 짧은 틱
 function soundWarn() { beep(440, .07, .4, 'sine'); }
 
+// ── Flash ─────────────────────────────────────────────────
 function flash(type) {
   const el = document.getElementById('flash');
   el.className = '';
@@ -438,10 +465,17 @@ function flash(type) {
   el.className = 'flash-' + type;
   el.addEventListener('animationend', () => el.className = '', { once: true });
 }
+
+// ── Vibrate ───────────────────────────────────────────────
 const vibe = p => navigator.vibrate && navigator.vibrate(p);
+
+// ── Helpers ───────────────────────────────────────────────
 const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+
 const PNAMES = ['전반','후반','3경기','4경기','5경기','6경기','7경기','8경기','9경기','10경기'];
 const pname = n => cfg.periods === 1 ? '경기' : (PNAMES[n-1] || `${n}경기`);
+
+// ── Render ────────────────────────────────────────────────
 function render() {
   const digits  = document.getElementById('timer-digits');
   const badge   = document.getElementById('mode-badge');
@@ -449,9 +483,11 @@ function render() {
   const sRow    = document.getElementById('status-row');
   const sPeriod = document.getElementById('s-period');
   const sNext   = document.getElementById('s-next');
+
   digits.textContent = fmt(st.timeLeft);
   const warn = st.running && st.timeLeft <= 5 && st.timeLeft > 0;
   digits.className = 'timer-digits' + (warn ? ' warn' : '');
+
   switch (st.mode) {
     case 'idle':
       badge.textContent = ''; badge.className = 'mode-badge';
@@ -460,6 +496,7 @@ function render() {
       sNext.textContent = `${cfg.gameMin}분 · 쉬는시간 ${cfg.brkMin}분`;
       mainBtn.textContent = '시작'; mainBtn.className = 'btn-main';
       break;
+
     case 'game':
       badge.textContent = '경기중'; badge.className = 'mode-badge';
       sRow.className = 'status-row';
@@ -468,6 +505,7 @@ function render() {
       mainBtn.textContent = st.running ? '일시정지' : '재개';
       mainBtn.className = 'btn-main';
       break;
+
     case 'wait-brk':
       badge.textContent = '경기 종료'; badge.className = 'mode-badge';
       sRow.className = 'status-row';
@@ -476,6 +514,7 @@ function render() {
       mainBtn.textContent = `쉬는시간 시작 (${cfg.brkMin}분)`;
       mainBtn.className = 'btn-main';
       break;
+
     case 'brk':
       badge.textContent = '쉬는시간'; badge.className = 'mode-badge brk';
       sRow.className = 'status-row brk';
@@ -485,12 +524,18 @@ function render() {
       mainBtn.className = 'btn-main brk';
       break;
   }
+
+  const skipBtn = document.getElementById('skip-btn');
+  const skipVisible = st.mode === 'game' || st.mode === 'brk';
+  skipBtn.classList.toggle('hidden', !skipVisible);
+
   renderTrack();
 }
 
 function renderTrack() {
   const wrap = document.getElementById('period-track');
   wrap.innerHTML = '';
+
   if (cfg.periods <= 12) {
     for (let i = 1; i <= cfg.periods; i++) {
       const d = document.createElement('div');
@@ -500,6 +545,7 @@ function renderTrack() {
       wrap.appendChild(d);
     }
   } else {
+    // Many periods: show text
     const txt = document.createElement('span');
     txt.className = 'period-text';
     txt.textContent = st.mode === 'idle'
@@ -509,16 +555,19 @@ function renderTrack() {
   }
 }
 
+// ── Timer core ────────────────────────────────────────────
 function startTick() {
   clearInterval(st.tid);
   st.tid = setInterval(tick, 1000);
 }
+
 function tick() {
   st.timeLeft--;
   if (st.timeLeft <= 10 && st.timeLeft > 0) soundWarn();
   if (st.timeLeft <= 0) { st.timeLeft = 0; onExpire(); }
   else render();
 }
+
 function onExpire() {
   clearInterval(st.tid);
   st.running = false;
@@ -560,6 +609,7 @@ function beginBrk() {
   st.running = true; startTick(); render();
 }
 
+// ── Button handlers ───────────────────────────────────────
 function handleMain() {
   initAudio();
   if (st.mode === 'idle')     { beginGame(1);   return; }
@@ -569,14 +619,25 @@ function handleMain() {
   render();
 }
 
+function handleSkip() {
+  if (st.mode !== 'game' && st.mode !== 'brk') return;
+  initAudio();
+  clearInterval(st.tid);
+  st.running = false;
+  st.timeLeft = 0;
+  onExpire();
+}
+
 function handleReset() {
-  if (st.mode === 'idle') return;
+  if (st.mode === 'idle') return; // nothing to reset
   if (st.running) { clearInterval(st.tid); st.running = false; }
   document.getElementById('confirm-overlay').classList.add('show');
 }
 
 function closeConfirm() {
   document.getElementById('confirm-overlay').classList.remove('show');
+  // Resume if was running before confirm
+  // (we paused it above, user chose cancel — just leave paused for safety)
 }
 
 function doReset() {
@@ -589,6 +650,7 @@ function doReset() {
 
 function resetAll() { doReset(); }
 
+// ── Settings ──────────────────────────────────────────────
 function openSettings() {
   if (st.running) { clearInterval(st.tid); st.running = false; render(); }
   document.getElementById('val-game').textContent    = cfg.gameMin;
@@ -618,6 +680,7 @@ function applySettings() {
   render();
 }
 
+// ── Boot ──────────────────────────────────────────────────
 loadCfg();
 st.timeLeft = cfg.gameMin * 60;
 render();
