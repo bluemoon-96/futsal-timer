@@ -509,7 +509,7 @@ function render() {
       sRow.className = 'status-row';
       sPeriod.textContent = `${st.period} / ${cfg.periods}경기`;
       sNext.textContent = st.period < cfg.periods ? `다음: 쉬는시간 ${cfg.brkMin}분` : '마지막 경기';
-      mainBtn.textContent = st.running ? '일시정지' : '재개';
+      mainBtn.textContent = st.running ? '일시정지' : (st.timeLeft === cfg.gameMin * 60 ? '시작' : '재개');
       mainBtn.className = 'btn-main';
       break;
 
@@ -665,15 +665,34 @@ function handlePrev() {
   if (st.mode === 'game') {
     if (st.period === 1) {
       st = { mode: 'idle', period: 1, timeLeft: cfg.gameMin * 60, running: false, tid: null };
+      releaseWakeLock();
       render();
     } else {
-      st.period = st.period - 1;
-      beginBrk();
+      st.period -= 1;
+      if (cfg.autoBreak) {
+        beginBrk();
+      } else {
+        st.mode = 'wait-brk';
+        st.timeLeft = cfg.brkMin * 60;
+        render();
+      }
     }
   } else if (st.mode === 'brk' || st.mode === 'wait-brk') {
-    beginGame(st.period);
+    if (cfg.autoBreak) {
+      beginGame(st.period);
+    } else {
+      st.mode = 'game';
+      st.timeLeft = cfg.gameMin * 60;
+      render();
+    }
   } else if (st.mode === 'wait-game') {
-    beginBrk();
+    if (cfg.autoBreak) {
+      beginBrk();
+    } else {
+      st.mode = 'wait-brk';
+      st.timeLeft = cfg.brkMin * 60;
+      render();
+    }
   }
 }
 
@@ -685,7 +704,13 @@ function handleSkip() {
     st.timeLeft = 0;
     onExpire();
   } else if (st.mode === 'wait-brk') {
-    beginGame(st.period + 1);
+    if (cfg.autoBreak) {
+      beginGame(st.period + 1);
+    } else {
+      st.mode = 'wait-game';
+      st.timeLeft = cfg.gameMin * 60;
+      render();
+    }
   } else if (st.mode === 'wait-game') {
     beginGame(st.period + 1);
   }
