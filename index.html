@@ -566,6 +566,14 @@
       <button class="btn-apply-sm" onclick="testSound()">▶ 재생</button>
     </div>
 
+    <div class="setting-row span2">
+      <div class="setting-info">
+        <div class="s-name">Android 앱 (APK)</div>
+        <div class="s-desc">백그라운드에서도 알림바에 표시되는 네이티브 앱</div>
+      </div>
+      <button class="btn-apply-sm" onclick="downloadApk()">⬇ 다운로드</button>
+    </div>
+
   </div>
   <div class="settings-note">※ 시간·경기 수 변경은 다음 경기/쉬는시간부터 반영됩니다</div>
 </div>
@@ -1102,6 +1110,10 @@ function testSound() {
   beepRaw(880, .22, 1,   'square',   0);
   beepRaw(880, .22, 1,   'square',   .35);
   beepRaw(660, .85, 1,   'sawtooth', .70);
+}
+
+function downloadApk() {
+  window.open('https://github.com/bluemoon-96/futsal-timer/releases/latest/download/FutsalTimer-debug.apk', '_blank');
 }
 
 // ── Focus mode (풀스크린 큰 숫자, 방향 고정) ──────────────────
