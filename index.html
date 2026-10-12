@@ -21,6 +21,7 @@
       --panel:  #111827;
       --surf:   #1f2937;
       --dim:    #6b7280;
+      --blue:   #40c4ff;
     }
 
     html, body {
@@ -156,6 +157,19 @@
       flex-shrink: 0;
     }
     .alarm-banner-btn:active { opacity: .8; }
+
+    /* 골키퍼 교체 배너 — 타이머는 계속 흐르므로 숫자를 가리지 않게 상단에 잠깐 표시 */
+    #gk-banner {
+      position: fixed; top: calc(54px + env(safe-area-inset-top, 0px) + 10px);
+      left: 50%; transform: translateX(-50%) translateY(-16px);
+      z-index: 185;
+      background: var(--panel); border: 2px solid var(--blue); border-radius: 14px;
+      padding: 10px 22px;
+      font-size: 16px; font-weight: 800; color: #fff; white-space: nowrap;
+      opacity: 0; pointer-events: none;
+      transition: opacity .2s, transform .2s;
+    }
+    #gk-banner.show { opacity: 1; pointer-events: all; transform: translateX(-50%) translateY(0); }
 
     /* ── Settings sheet ── */
     .settings-backdrop {
@@ -348,6 +362,8 @@
     .s-period { font-weight: 600; color: var(--green); transition: color .3s; }
     .status-row.brk .s-period { color: var(--yellow); }
     .s-finish-time { font-weight: 700; color: #9ca3af; }
+    .s-gk { white-space: nowrap; line-height: 1; color: var(--blue); }
+    .s-gk-time { font-weight: 700; font-variant-numeric: tabular-nums; }
 
     .s-next-row {
       font-size: 17px; color: var(--dim);
@@ -561,6 +577,9 @@
   <button class="alarm-banner-btn" id="alarm-banner-btn">확인</button>
 </div>
 
+<!-- 골키퍼 교체 알림 (탭하면 닫힘, 6초 후 자동으로 사라짐) -->
+<div id="gk-banner" onclick="hideGkBanner()">🧤 골키퍼 교체</div>
+
 <!-- Settings -->
 <div class="settings-backdrop" id="settings-backdrop" onclick="closeSettings()"></div>
 <div class="settings-sheet"   id="settings-sheet">
@@ -604,6 +623,29 @@
         <button onclick="adj('periods',-1)">−</button>
         <div class="stepper-val" id="val-periods">2</div>
         <button onclick="adj('periods',+1)">＋</button>
+      </div>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="s-name">골키퍼 교체 알림</div>
+        <div class="s-desc">경기 중 교체 시점에 소리·진동·배너</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="toggle-gk" checked>
+        <div class="toggle-track"></div>
+      </label>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <div class="s-name">교체 시점</div>
+        <div class="s-desc">경기 시작 후 (분)</div>
+      </div>
+      <div class="stepper">
+        <button onclick="adj('gk',-1)">−</button>
+        <div class="stepper-val" id="val-gk">6</div>
+        <button onclick="adj('gk',+1)">＋</button>
       </div>
     </div>
 
@@ -684,6 +726,7 @@
     <div class="status-row" id="status-row">
       <span class="s-period" id="s-period">경기 준비</span>
       <span class="s-finish-row" id="s-finish-row">이번 구간 종료 <span class="s-finish-time" id="s-finish-time"></span></span>
+      <span class="s-gk" id="s-gk">🧤 GK 교체까지 <span class="s-gk-time" id="s-gk-time"></span></span>
     </div>
     <div class="s-next-row" id="s-next-row"><span id="s-next"></span></div>
   </div>
@@ -702,7 +745,7 @@
 
 <script>
 // ── Config ────────────────────────────────────────────────
-let cfg = { gameMin: 20, brkMin: 5, periods: 2, autoBreak: true, soundOn: true, vibrationOn: true };
+let cfg = { gameMin: 12.5, brkMin: 0.5, periods: 9, autoBreak: true, soundOn: true, vibrationOn: true, gkOn: true, gkMin: 6 };
 function loadCfg() {
   try { cfg = { ...cfg, ...JSON.parse(localStorage.getItem('futsal-cfg') || '{}') }; } catch(e) {}
 }
@@ -767,6 +810,20 @@ function soundBrkEnd() {
 }
 // 마지막 10초: 1초마다 짧은 틱
 function soundWarn() { beep(440, .07, .4, 'sine'); }
+// 골키퍼 교체: "띵-동" 두 번 (경기 종료 경보·쉬는시간 종료음과 구분)
+function soundGk() {
+  beep(988, .25, .9, 'sine', 0);
+  beep(784, .45, .9, 'sine', .28);
+  beep(988, .25, .9, 'sine', .9);
+  beep(784, .45, .9, 'sine', 1.18);
+}
+
+// 흐르는 중에 교체 시점에 도달했으면 한 번 알림
+function checkGk() {
+  if (!st.running || !gkActive() || gkLeft() > 0) return;
+  st.gkDone = true;
+  soundGk(); vibe([200,100,200]); showGkBanner();
+}
 
 // ── 경기 종료 경보 (확인 전까지 반복, 최대 30초 후 자동 중단) ──
 let alarmLoopId = null;
@@ -828,9 +885,27 @@ const fmtClock = ms => {
   const d = new Date(ms);
   return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 };
-const fmtClockSec = ms => {
-  const d = new Date(ms);
-  return [d.getHours(), d.getMinutes(), d.getSeconds()].map(n => String(n).padStart(2,'0')).join(':');
+// ── 골키퍼 교체 ───────────────────────────────────────────
+// 교체 시점 = 경기 시작 후 gkMin 분 (시계 기준: 설정 경기시간 − 남은 시간). ±10초 조정도 그대로 반영됨
+// 경기당 한 번만 알림 (st.gkDone), 쉬는시간에는 없음
+const gkActive = () => cfg.gkOn && st.mode === 'game' && !st.gkDone && cfg.gkMin < cfg.gameMin;
+const gkLeft = () => st.timeLeft - Math.round((cfg.gameMin - cfg.gkMin) * 60); // 교체까지 남은 초
+
+let gkBannerTid = null;
+function showGkBanner() {
+  document.getElementById('gk-banner').classList.add('show');
+  clearTimeout(gkBannerTid);
+  gkBannerTid = setTimeout(hideGkBanner, 6000);
+}
+function hideGkBanner() {
+  clearTimeout(gkBannerTid); gkBannerTid = null;
+  document.getElementById('gk-banner').classList.remove('show');
+}
+
+// 쉬는시간 길이 표기: 30초 / 1분 / 1분 30초
+const fmtDur = sec => {
+  const m = Math.floor(sec / 60), s = Math.round(sec % 60);
+  return m && s ? `${m}분 ${s}초` : m ? `${m}분` : `${s}초`;
 };
 // 경기/쉬는시간은 0.5분(30초) 단위 → 1.5 처럼 소수 한 자리까지 표시
 const fmtMin = m => Number.isInteger(m) ? String(m) : m.toFixed(1);
@@ -885,6 +960,9 @@ let ttTimer = null;
 function openTimetable() {
   document.getElementById('tt-overlay').classList.add('show');
   renderTimetable();
+  // 경기 수가 많으면 목록이 길어지므로 현재 구간이 보이게 스크롤
+  const cur = document.querySelector('#tt-list .tt-row.cur');
+  if (cur) cur.scrollIntoView({ block: 'nearest' });
   clearInterval(ttTimer);
   ttTimer = setInterval(renderTimetable, 1000); // 일시정지 중에도 추정 시각이 흘러가도록
 }
@@ -898,16 +976,18 @@ function renderTimetable() {
   if (!document.getElementById('tt-overlay').classList.contains('show')) return;
   const rows = buildSchedule();
   document.getElementById('tt-list').innerHTML = rows.map(r => {
+    // 경기는 시작~종료 시각(시:분), 쉬는시간은 길이만 표시
     let range;
-    if (r.start && r.end) range = `${fmtClockSec(r.start)} ~ ${fmtClockSec(r.end)}`;
-    else if (r.start)     range = `${fmtClockSec(r.start)} ~ –`;
-    else                  range = '건너뜀';
+    if (!r.start)       range = '건너뜀';
+    else if (!r.isGame) range = fmtDur(cfg.brkMin * 60);
+    else if (r.end)     range = `${fmtClock(r.start)} ~ ${fmtClock(r.end)}`;
+    else                range = `${fmtClock(r.start)} ~ –`;
     return `<div class="tt-row ${r.status}${r.isGame ? '' : ' brk'}">`
-      + `<span class="tt-name">${r.isGame ? pname(r.period) : '쉬는시간'}</span>`
+      + `<span class="tt-name">${r.isGame ? `${r.period}경기` : '쉬는시간'}</span>`
       + `<span class="tt-range">${range}</span></div>`;
   }).join('');
   const last = rows[rows.length - 1];
-  document.getElementById('tt-total-time').textContent = (last && last.end) ? fmtClockSec(last.end) : '–';
+  document.getElementById('tt-total-time').textContent = (last && last.end) ? fmtClock(last.end) : '–';
 }
 
 // ── Render ────────────────────────────────────────────────
@@ -977,6 +1057,10 @@ function render() {
   document.getElementById('adj-minus-btn').classList.toggle('hidden', !adjVisible);
   document.getElementById('adj-plus-btn').classList.toggle('hidden', !adjVisible);
   document.getElementById('reset-btn').disabled = (st.mode === 'idle');
+
+  const showGk = gkActive() && gkLeft() > 0;
+  document.getElementById('s-gk').style.display = showGk ? '' : 'none';
+  if (showGk) document.getElementById('s-gk-time').textContent = fmt(gkLeft());
   document.getElementById('s-next-row').style.display = (st.mode !== 'done') ? '' : 'none';
 
   document.getElementById('s-finish-row').style.display = (st.mode !== 'done') ? '' : 'none';
@@ -1071,6 +1155,7 @@ function tick() {
     const prev = st.timeLeft;
     st.timeLeft = remaining;
     if (st.timeLeft <= 10 && st.timeLeft > 0 && st.timeLeft < prev) soundWarn();
+    checkGk();
     render();
   }
 }
@@ -1124,6 +1209,7 @@ function beginGame(period) {
   clearAlarm();
   st.mode = 'game'; st.period = period;
   st.timeLeft = Math.round(cfg.gameMin * 60);
+  st.gkDone = false;
   markSegStart();
   st.running = true; startTick(); render();
   requestWakeLock();
@@ -1160,6 +1246,7 @@ function handleAdjust(delta) {
   const next = Math.max(1, st.timeLeft + delta);
   if (st.running) endTime += (next - st.timeLeft) * 1000;
   st.timeLeft = next;
+  checkGk();
   render();
 }
 
@@ -1185,7 +1272,7 @@ function executePrev() {
     }
   } else if (st.mode === 'brk' || st.mode === 'wait-brk') {
     if (cfg.autoBreak) { beginGame(st.period); }
-    else { st.mode = 'game'; st.timeLeft = cfg.gameMin * 60; render(); }
+    else { st.mode = 'game'; st.timeLeft = cfg.gameMin * 60; st.gkDone = false; render(); }
   } else if (st.mode === 'wait-game') {
     if (cfg.autoBreak) { beginBrk(); }
     else { st.mode = 'wait-brk'; st.timeLeft = cfg.brkMin * 60; render(); }
@@ -1272,6 +1359,7 @@ function backFromEnd() {
   st.period = cfg.periods;
   st.timeLeft = cfg.gameMin * 60;
   st.running = false;
+  st.gkDone = false;
   clearSegFrom(curSegIdx());
   render();
 }
@@ -1285,6 +1373,8 @@ function openSettings() {
   document.getElementById('val-game').textContent      = fmtMin(cfg.gameMin);
   document.getElementById('val-brk').textContent       = fmtMin(cfg.brkMin);
   document.getElementById('val-periods').textContent   = cfg.periods;
+  document.getElementById('val-gk').textContent        = fmtMin(cfg.gkMin);
+  document.getElementById('toggle-gk').checked         = cfg.gkOn;
   document.getElementById('toggle-auto').checked       = cfg.autoBreak;
   document.getElementById('toggle-sound').checked      = cfg.soundOn;
   document.getElementById('toggle-vibration').checked  = cfg.vibrationOn;
@@ -1362,6 +1452,8 @@ function closeSettings() {
   cfg.gameMin     = parseFloat(document.getElementById('val-game').textContent);
   cfg.brkMin      = parseFloat(document.getElementById('val-brk').textContent);
   cfg.periods     = parseInt(document.getElementById('val-periods').textContent);
+  cfg.gkMin       = parseFloat(document.getElementById('val-gk').textContent);
+  cfg.gkOn        = document.getElementById('toggle-gk').checked;
   cfg.autoBreak   = document.getElementById('toggle-auto').checked;
   cfg.soundOn     = document.getElementById('toggle-sound').checked;
   cfg.vibrationOn = document.getElementById('toggle-vibration').checked;
@@ -1379,7 +1471,7 @@ function closeSettings() {
 
 // 경기·쉬는 시간은 0.5분(30초) 단위, 경기 수는 1 단위
 function adj(key, dir) {
-  const map = { game: 'gameMin', brk: 'brkMin', periods: 'periods' };
+  const map = { game: 'gameMin', brk: 'brkMin', periods: 'periods', gk: 'gkMin' };
   const step = key === 'periods' ? 1 : 0.5;
   const v = Math.max(step, cfg[map[key]] + dir * step);
   cfg[map[key]] = v;
