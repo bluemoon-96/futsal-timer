@@ -228,7 +228,7 @@
     }
     .stepper button:active { background: #374151; }
     .stepper-val {
-      min-width: 34px; text-align: center;
+      min-width: 44px; text-align: center;
       font-size: 18px; font-weight: 800;
       font-variant-numeric: tabular-nums;
     }
@@ -354,14 +354,86 @@
       text-align: center; margin-top: 2px;
     }
 
+    /* 전체 경기 종료 시각 (상단 바 오른쪽) + 타임테이블 아이콘 */
     .match-finish-corner {
-      position: fixed;
-      top: calc(54px + env(safe-area-inset-top, 0px) + 6px);
-      left: calc(14px + env(safe-area-inset-left, 0px));
-      z-index: 10;
+      align-self: center;
+      display: flex; align-items: center; gap: 8px;
+      flex-shrink: 0;
     }
-    .mfc-label { font-size: 12px; color: var(--dim); }
-    .mfc-time  { font-size: 20px; color: #9ca3af; font-weight: 700; margin-top: 1px; }
+    .mfc-label { font-size: 12px; color: var(--dim); white-space: nowrap; }
+    .mfc-time  { font-size: 18px; color: #9ca3af; font-weight: 700; font-variant-numeric: tabular-nums; }
+    @media (max-width: 380px) { .mfc-label { display: none; } }
+    .btn-tt {
+      background: var(--surf); border: none; color: #9ca3af;
+      width: 34px; height: 34px; border-radius: 9px;
+      font-size: 15px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .btn-tt:active { background: #374151; }
+
+    /* ── ±10초 버튼 (경기중/쉬는시간 줄 좌우 끝) ── */
+    .mode-line {
+      align-self: stretch;
+      display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+      padding: 0 calc(6px + env(safe-area-inset-right, 0px)) 0 calc(6px + env(safe-area-inset-left, 0px));
+    }
+    .btn-adj {
+      height: 36px; padding: 0 14px;
+      background: var(--surf); color: #9ca3af;
+      border: none; border-radius: 10px;
+      font-size: 15px; font-weight: 800; cursor: pointer;
+      font-variant-numeric: tabular-nums;
+      position: relative; z-index: 21; /* 집중 모드의 탭 캐처(z-index 5) 위 */
+      transition: opacity .25s;
+    }
+    .btn-adj:active { background: #374151; }
+    .btn-adj.minus { justify-self: start; }
+    .btn-adj.plus  { justify-self: end; }
+    .btn-adj.hidden { visibility: hidden; }
+
+    /* ── Timetable popup (열려 있어도 타이머는 계속 진행) ── */
+    #tt-overlay {
+      position: fixed; inset: 0; z-index: 170;
+      background: rgba(0,0,0,.78);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    #tt-overlay.show { opacity: 1; pointer-events: all; }
+    .tt-box {
+      background: var(--panel); border-radius: 20px;
+      padding: 18px 18px 16px;
+      width: min(380px, 92vw);
+      max-height: 88vh; max-height: 88dvh;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .tt-head { display: flex; align-items: center; justify-content: space-between; }
+    .tt-title { font-size: 16px; font-weight: 800; }
+    .tt-close {
+      background: var(--surf); border: none; color: #9ca3af;
+      width: 32px; height: 32px; border-radius: 9px;
+      font-size: 14px; cursor: pointer;
+    }
+    .tt-close:active { background: #374151; }
+    .tt-list { overflow-y: auto; display: flex; flex-direction: column; }
+    .tt-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 9px 8px; border-bottom: 1px solid var(--surf);
+      font-size: 14px;
+    }
+    .tt-name  { font-weight: 700; white-space: nowrap; }
+    .tt-row.brk .tt-name { color: var(--yellow); }
+    .tt-range { color: #d1d5db; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .tt-row.past { opacity: .4; }
+    .tt-row.cur  { background: rgba(0,230,118,.10); border-radius: 8px; border-bottom-color: transparent; }
+    .tt-row.cur.brk { background: rgba(255,202,40,.10); }
+    .tt-row.cur .tt-name::before { content: '▶ '; }
+    .tt-total {
+      display: flex; align-items: baseline; justify-content: space-between;
+      padding: 2px 8px 0;
+    }
+    .tt-total-label { font-size: 13px; color: var(--dim); }
+    .tt-total-time  { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
 
     /* ── Bottom controls ── */
     .bottom-bar {
@@ -409,10 +481,11 @@
 
     body.focus-mode .top-bar,
     body.focus-mode .status-row,
-    body.focus-mode .s-next-row,
-    body.focus-mode .match-finish-corner {
+    body.focus-mode .s-next-row {
       display: none;
     }
+    body.focus-mode .btn-adj { opacity: 0; pointer-events: none; }
+    body.focus-mode.controls-peek .btn-adj { opacity: 1; pointer-events: all; }
     body.focus-mode .mode-badge { font-size: 28px; }
     body.focus-mode .screen { grid-template-rows: 0 1fr 0; }
     body.focus-mode .timer-digits { font-size: min(85vh, 32vw); }
@@ -432,10 +505,19 @@
 <!-- Flash -->
 <div id="flash"></div>
 
-<!-- 전체 경기 종료 시각 (상단 왼쪽 코너) -->
-<div class="match-finish-corner" id="match-finish-corner">
-  <div class="mfc-label">전체 경기 종료 시간</div>
-  <div class="mfc-time" id="mfc-time"></div>
+<!-- 타임테이블 (열려 있어도 타이머는 계속 진행) -->
+<div id="tt-overlay" onclick="if (event.target === this) closeTimetable()">
+  <div class="tt-box">
+    <div class="tt-head">
+      <div class="tt-title">타임테이블</div>
+      <button class="tt-close" onclick="closeTimetable()">✕</button>
+    </div>
+    <div class="tt-list" id="tt-list"></div>
+    <div class="tt-total">
+      <span class="tt-total-label">전체 경기 종료</span>
+      <span class="tt-total-time" id="tt-total-time"></span>
+    </div>
+  </div>
 </div>
 
 <!-- End overlay -->
@@ -492,7 +574,7 @@
     <div class="setting-row">
       <div class="setting-info">
         <div class="s-name">경기 시간</div>
-        <div class="s-desc">분 단위</div>
+        <div class="s-desc">0.5분(30초) 단위</div>
       </div>
       <div class="stepper">
         <button onclick="adj('game',-1)">−</button>
@@ -504,7 +586,7 @@
     <div class="setting-row">
       <div class="setting-info">
         <div class="s-name">쉬는 시간</div>
-        <div class="s-desc">분 단위</div>
+        <div class="s-desc">0.5분(30초) 단위</div>
       </div>
       <div class="stepper">
         <button onclick="adj('brk',-1)">−</button>
@@ -584,11 +666,20 @@
   <div class="top-bar">
     <div class="app-name">⚽ Futsal</div>
     <div class="period-track" id="period-track"></div>
+    <div class="match-finish-corner" id="match-finish-corner">
+      <span class="mfc-label">전체 경기 종료</span>
+      <span class="mfc-time" id="mfc-time"></span>
+      <button class="btn-tt" onclick="openTimetable()" aria-label="타임테이블">🗓</button>
+    </div>
     <button class="btn-settings" onclick="openSettings()">⚙</button>
   </div>
 
   <div class="timer-wrap">
-    <div class="mode-badge" id="mode-badge"></div>
+    <div class="mode-line">
+      <button class="btn-adj minus hidden" id="adj-minus-btn" onclick="handleAdjust(-10)">−10초</button>
+      <div class="mode-badge" id="mode-badge"></div>
+      <button class="btn-adj plus hidden" id="adj-plus-btn" onclick="handleAdjust(10)">+10초</button>
+    </div>
     <div class="timer-digits" id="timer-digits">20:00</div>
     <div class="status-row" id="status-row">
       <span class="s-period" id="s-period">경기 준비</span>
@@ -622,6 +713,13 @@ function saveCfg() { localStorage.setItem('futsal-cfg', JSON.stringify(cfg)); }
 let st = { mode: 'idle', period: 1, timeLeft: 0, running: false, tid: null, alarmPending: false };
 let transitionTid = null; // 경기/쉬는시간 전환 애니메이션 1.1초 잠금
 let matchStartTime = 0;   // 첫 경기 시작 시각(진행 시간 요약용)
+
+// 타임테이블용: 구간 인덱스별 실제 [시작, 종료] epoch ms (종료 전이면 0)
+// 구간 인덱스 — 경기 p → 2(p-1), 그 뒤 쉬는시간 → 2(p-1)+1. 총 2·경기수−1 구간
+let segActual = {};
+function clearSegFrom(idx) { for (const k in segActual) if (+k >= idx) delete segActual[k]; }
+function markSegStart() { const i = curSegIdx(); clearSegFrom(i); segActual[i] = [Date.now(), 0]; }
+function markSegEnd() { const a = segActual[curSegIdx()]; if (a) a[1] = Date.now(); }
 
 // ── Audio ─────────────────────────────────────────────────
 let actx = null;
@@ -730,25 +828,86 @@ const fmtClock = ms => {
   const d = new Date(ms);
   return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 };
+const fmtClockSec = ms => {
+  const d = new Date(ms);
+  return [d.getHours(), d.getMinutes(), d.getSeconds()].map(n => String(n).padStart(2,'0')).join(':');
+};
+// 경기/쉬는시간은 0.5분(30초) 단위 → 1.5 처럼 소수 한 자리까지 표시
+const fmtMin = m => Number.isInteger(m) ? String(m) : m.toFixed(1);
 
-// 남은 전체 시간을 추정해 "예상 종료 시각"을 계산한다 (어디까지나 추정치)
-function estimatedFinishMs() {
-  if (st.mode === 'done') return 0;
-  const gameSec = cfg.gameMin * 60;
-  const brkSec  = cfg.brkMin * 60;
-  let remainingSec;
-  if (st.mode === 'idle') {
-    remainingSec = cfg.periods * gameSec + Math.max(0, cfg.periods - 1) * brkSec;
-  } else if (st.mode === 'game') {
-    remainingSec = st.timeLeft + (cfg.periods - st.period) * (brkSec + gameSec);
-  } else if (st.mode === 'brk' || st.mode === 'wait-brk') {
-    remainingSec = st.timeLeft + (cfg.periods - st.period) * gameSec + Math.max(0, cfg.periods - st.period - 1) * brkSec;
-  } else if (st.mode === 'wait-game') {
-    remainingSec = st.timeLeft + Math.max(0, cfg.periods - st.period - 1) * (gameSec + brkSec);
-  } else {
-    remainingSec = 0;
+// 현재 구간이 끝나는 시각 (흐르는 중이면 고정된 endTime, 멈춰 있으면 지금 + 남은 시간)
+const curEndMs = () => st.running ? endTime : Date.now() + st.timeLeft * 1000;
+
+// ── 타임테이블 ────────────────────────────────────────────
+// 지난 구간은 실제 기록(segActual), 현재 구간 종료는 남은 시간 기준,
+// 이후 구간은 설정 시간을 이어 붙인 추정치 → ±10초 조정이 그 뒤 모든 구간에 그대로 밀려 반영됨
+function curSegIdx() {
+  switch (st.mode) {
+    case 'idle':      return 0;
+    case 'game':      return 2 * (st.period - 1);
+    case 'wait-brk':
+    case 'brk':       return 2 * (st.period - 1) + 1;
+    case 'wait-game': return 2 * st.period;
+    default:          return 2 * cfg.periods - 1; // done
   }
-  return Date.now() + remainingSec * 1000;
+}
+
+function buildSchedule() {
+  const now = Date.now();
+  const cur = curSegIdx();
+  const rows = [];
+  let t = 0;
+  for (let i = 0; i < 2 * cfg.periods - 1; i++) {
+    const isGame = i % 2 === 0;
+    const a = segActual[i];
+    const row = { isGame, period: Math.floor(i / 2) + 1, start: 0, end: 0, status: 'next' };
+    if (i < cur || st.mode === 'done') {
+      row.status = 'past';
+      if (a) { row.start = a[0]; row.end = a[1]; }
+    } else if (i === cur) {
+      row.status = 'cur';
+      const started = (st.mode === 'game' || st.mode === 'brk') && a;
+      row.start = started ? a[0] : now;
+      row.end = (started && a[1]) ? a[1] : curEndMs();
+      t = row.end;
+    } else {
+      row.start = t;
+      row.end = t + (isGame ? cfg.gameMin : cfg.brkMin) * 60000;
+      t = row.end;
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
+let ttTimer = null;
+
+function openTimetable() {
+  document.getElementById('tt-overlay').classList.add('show');
+  renderTimetable();
+  clearInterval(ttTimer);
+  ttTimer = setInterval(renderTimetable, 1000); // 일시정지 중에도 추정 시각이 흘러가도록
+}
+
+function closeTimetable() {
+  clearInterval(ttTimer); ttTimer = null;
+  document.getElementById('tt-overlay').classList.remove('show');
+}
+
+function renderTimetable() {
+  if (!document.getElementById('tt-overlay').classList.contains('show')) return;
+  const rows = buildSchedule();
+  document.getElementById('tt-list').innerHTML = rows.map(r => {
+    let range;
+    if (r.start && r.end) range = `${fmtClockSec(r.start)} ~ ${fmtClockSec(r.end)}`;
+    else if (r.start)     range = `${fmtClockSec(r.start)} ~ –`;
+    else                  range = '건너뜀';
+    return `<div class="tt-row ${r.status}${r.isGame ? '' : ' brk'}">`
+      + `<span class="tt-name">${r.isGame ? pname(r.period) : '쉬는시간'}</span>`
+      + `<span class="tt-range">${range}</span></div>`;
+  }).join('');
+  const last = rows[rows.length - 1];
+  document.getElementById('tt-total-time').textContent = (last && last.end) ? fmtClockSec(last.end) : '–';
 }
 
 // ── Render ────────────────────────────────────────────────
@@ -761,7 +920,7 @@ function render() {
   const sNext   = document.getElementById('s-next');
 
   digits.textContent = fmt(st.timeLeft);
-  const warn = st.running && st.timeLeft <= 10 && st.timeLeft > 0;
+  const warn = st.running && st.timeLeft <= 60 && st.timeLeft > 0;
   digits.className = 'timer-digits' + (warn ? ' warn' : '');
 
   switch (st.mode) {
@@ -769,7 +928,7 @@ function render() {
       badge.textContent = ''; badge.className = 'mode-badge';
       sRow.className = 'status-row';
       sPeriod.textContent = '경기 준비';
-      sNext.textContent = `${cfg.gameMin}분 · 쉬는시간 ${cfg.brkMin}분`;
+      sNext.textContent = `${fmtMin(cfg.gameMin)}분 · 쉬는시간 ${fmtMin(cfg.brkMin)}분`;
       mainBtn.textContent = '시작'; mainBtn.className = 'btn-main';
       break;
 
@@ -777,7 +936,7 @@ function render() {
       badge.textContent = '경기중'; badge.className = 'mode-badge';
       sRow.className = 'status-row';
       sPeriod.textContent = `${st.period} / ${cfg.periods}경기`;
-      sNext.textContent = st.period < cfg.periods ? `다음: 쉬는시간 ${cfg.brkMin}분` : '마지막 경기';
+      sNext.textContent = st.period < cfg.periods ? `다음: 쉬는시간 ${fmtMin(cfg.brkMin)}분` : '마지막 경기';
       mainBtn.textContent = st.running ? '일시정지 ⏸' : (st.timeLeft === cfg.gameMin * 60 ? '시작' : '재개 ▶');
       mainBtn.className = 'btn-main';
       break;
@@ -787,7 +946,7 @@ function render() {
       sRow.className = 'status-row';
       sPeriod.textContent = `${pname(st.period)} 종료`;
       sNext.textContent = '버튼을 눌러 쉬는시간 시작';
-      mainBtn.textContent = `쉬는시간 시작 (${cfg.brkMin}분)`;
+      mainBtn.textContent = `쉬는시간 시작 (${fmtMin(cfg.brkMin)}분)`;
       mainBtn.className = 'btn-main';
       break;
 
@@ -795,7 +954,7 @@ function render() {
       badge.textContent = '쉬는시간'; badge.className = 'mode-badge brk';
       sRow.className = 'status-row brk';
       sPeriod.textContent = `${st.period + 1}경기 준비 중`;
-      sNext.textContent = `다음: 경기시간 ${cfg.gameMin}분`;
+      sNext.textContent = `다음: 경기시간 ${fmtMin(cfg.gameMin)}분`;
       mainBtn.textContent = st.running ? '일시정지 ⏸' : '재개 ▶';
       mainBtn.className = 'btn-main brk';
       break;
@@ -805,7 +964,7 @@ function render() {
       sRow.className = 'status-row brk';
       sPeriod.textContent = `${st.period + 1}경기 준비`;
       sNext.textContent = '버튼을 눌러 경기 시작';
-      mainBtn.textContent = `${st.period + 1}경기 시작 (${cfg.gameMin}분)`;
+      mainBtn.textContent = `${st.period + 1}경기 시작 (${fmtMin(cfg.gameMin)}분)`;
       mainBtn.className = 'btn-main';
       break;
   }
@@ -814,6 +973,9 @@ function render() {
   const skipVisible = ['game', 'brk', 'wait-brk', 'wait-game'].includes(st.mode);
   document.getElementById('prev-btn').classList.toggle('hidden', !prevVisible);
   document.getElementById('skip-btn').classList.toggle('hidden', !skipVisible);
+  const adjVisible = st.mode === 'game' || st.mode === 'brk';
+  document.getElementById('adj-minus-btn').classList.toggle('hidden', !adjVisible);
+  document.getElementById('adj-plus-btn').classList.toggle('hidden', !adjVisible);
   document.getElementById('reset-btn').disabled = (st.mode === 'idle');
   document.getElementById('s-next-row').style.display = (st.mode !== 'done') ? '' : 'none';
 
@@ -822,13 +984,15 @@ function render() {
     document.getElementById('s-finish-time').textContent = fmtClock(Date.now() + st.timeLeft * 1000);
   }
 
-  const finishMs = estimatedFinishMs();
+  const schedule = buildSchedule();
+  const finishMs = st.mode !== 'done' && schedule.length ? schedule[schedule.length - 1].end : 0;
   const matchFinishEl = document.getElementById('match-finish-corner');
-  matchFinishEl.style.display = (st.mode !== 'done' && finishMs) ? '' : 'none';
-  if (st.mode !== 'done' && finishMs) document.getElementById('mfc-time').textContent = fmtClock(finishMs);
+  matchFinishEl.style.display = finishMs ? '' : 'none';
+  if (finishMs) document.getElementById('mfc-time').textContent = fmtClock(finishMs);
 
   renderAlarm();
   renderTrack();
+  renderTimetable();
 }
 
 // 경기/쉬는시간 종료 경보
@@ -914,6 +1078,7 @@ function tick() {
 function onExpire() {
   clearInterval(st.tid);
   st.running = false;
+  markSegEnd();
 
   if (st.mode === 'game') {
     flash('red'); vibe([300,100,300,100,500]);
@@ -958,14 +1123,16 @@ function onExpire() {
 function beginGame(period) {
   clearAlarm();
   st.mode = 'game'; st.period = period;
-  st.timeLeft = cfg.gameMin * 60;
+  st.timeLeft = Math.round(cfg.gameMin * 60);
+  markSegStart();
   st.running = true; startTick(); render();
   requestWakeLock();
 }
 
 function beginBrk() {
   st.mode = 'brk';
-  st.timeLeft = cfg.brkMin * 60;
+  st.timeLeft = Math.round(cfg.brkMin * 60);
+  markSegStart();
   st.running = true; startTick(); render();
   requestWakeLock();
 }
@@ -977,7 +1144,22 @@ function handleMain() {
   if (st.mode === 'wait-brk') { clearAlarm(); beginBrk();  return; }
   if (st.mode === 'wait-game') { beginGame(st.period + 1); return; }
   if (st.running) { clearInterval(st.tid); st.running = false; }
-  else            { st.running = true; startTick(); }
+  else {
+    // ⏮ 로 되돌아와 아직 시작 기록이 없는 구간이면 지금을 시작 시각으로 기록
+    if (!segActual[curSegIdx()]) markSegStart();
+    st.running = true; startTick();
+  }
+  render();
+}
+
+// ±10초: 현재 흐르는 구간의 남은 시간만 조정 (설정된 경기/쉬는시간 길이는 그대로)
+function handleAdjust(delta) {
+  if (document.body.classList.contains('focus-mode')) peekControls();
+  if (transitionTid !== null) return;
+  if (st.mode !== 'game' && st.mode !== 'brk') return;
+  const next = Math.max(1, st.timeLeft + delta);
+  if (st.running) endTime += (next - st.timeLeft) * 1000;
+  st.timeLeft = next;
   render();
 }
 
@@ -1008,6 +1190,8 @@ function executePrev() {
     if (cfg.autoBreak) { beginBrk(); }
     else { st.mode = 'wait-brk'; st.timeLeft = cfg.brkMin * 60; render(); }
   }
+  // 바로 시작하지 않는 구간(대기/일시정지)으로 돌아왔으면 그 구간부터의 실제 기록은 무효
+  if (!st.running) { clearSegFrom(curSegIdx()); render(); }
 }
 
 function handleSkip() {
@@ -1019,6 +1203,7 @@ function handleSkip() {
 function executeSkip() {
   clearAlarm();
   clearInterval(st.tid); st.running = false;
+  if (st.mode === 'game' || st.mode === 'brk') markSegEnd();
   if (st.mode === 'game') {
     if (st.period >= cfg.periods) {
       releaseWakeLock();
@@ -1073,6 +1258,7 @@ function doReset() {
   releaseWakeLock();
   st = { mode: 'idle', period: 1, timeLeft: cfg.gameMin * 60, running: false, tid: null, alarmPending: false };
   matchStartTime = 0;
+  segActual = {};
   document.getElementById('end-overlay').classList.remove('show');
   render();
 }
@@ -1086,6 +1272,7 @@ function backFromEnd() {
   st.period = cfg.periods;
   st.timeLeft = cfg.gameMin * 60;
   st.running = false;
+  clearSegFrom(curSegIdx());
   render();
 }
 
@@ -1095,8 +1282,8 @@ let wasRunningBeforeSettings = false;
 function openSettings() {
   wasRunningBeforeSettings = st.running;
   if (st.running) { clearInterval(st.tid); st.running = false; render(); }
-  document.getElementById('val-game').textContent      = cfg.gameMin;
-  document.getElementById('val-brk').textContent       = cfg.brkMin;
+  document.getElementById('val-game').textContent      = fmtMin(cfg.gameMin);
+  document.getElementById('val-brk').textContent       = fmtMin(cfg.brkMin);
   document.getElementById('val-periods').textContent   = cfg.periods;
   document.getElementById('toggle-auto').checked       = cfg.autoBreak;
   document.getElementById('toggle-sound').checked      = cfg.soundOn;
@@ -1144,6 +1331,7 @@ function exitFocusMode() {
   }
   clearTimeout(focusHideTimer);
   document.querySelector('.bottom-bar').classList.remove('peek');
+  document.body.classList.remove('controls-peek');
 }
 
 function handleFocusTap() {
@@ -1158,8 +1346,12 @@ function toggleFocusMode() {
 function peekControls() {
   const bar = document.querySelector('.bottom-bar');
   bar.classList.add('peek');
+  document.body.classList.add('controls-peek'); // ±10초 버튼도 함께
   clearTimeout(focusHideTimer);
-  focusHideTimer = setTimeout(() => bar.classList.remove('peek'), 3000);
+  focusHideTimer = setTimeout(() => {
+    bar.classList.remove('peek');
+    document.body.classList.remove('controls-peek');
+  }, 3000);
 }
 
 document.addEventListener('fullscreenchange', () => {
@@ -1167,8 +1359,8 @@ document.addEventListener('fullscreenchange', () => {
 });
 
 function closeSettings() {
-  cfg.gameMin     = parseInt(document.getElementById('val-game').textContent);
-  cfg.brkMin      = parseInt(document.getElementById('val-brk').textContent);
+  cfg.gameMin     = parseFloat(document.getElementById('val-game').textContent);
+  cfg.brkMin      = parseFloat(document.getElementById('val-brk').textContent);
   cfg.periods     = parseInt(document.getElementById('val-periods').textContent);
   cfg.autoBreak   = document.getElementById('toggle-auto').checked;
   cfg.soundOn     = document.getElementById('toggle-sound').checked;
@@ -1185,10 +1377,13 @@ function closeSettings() {
   render();
 }
 
-function adj(key, delta) {
+// 경기·쉬는 시간은 0.5분(30초) 단위, 경기 수는 1 단위
+function adj(key, dir) {
   const map = { game: 'gameMin', brk: 'brkMin', periods: 'periods' };
-  cfg[map[key]] = Math.max(1, cfg[map[key]] + delta);
-  document.getElementById('val-' + key).textContent = cfg[map[key]];
+  const step = key === 'periods' ? 1 : 0.5;
+  const v = Math.max(step, cfg[map[key]] + dir * step);
+  cfg[map[key]] = v;
+  document.getElementById('val-' + key).textContent = key === 'periods' ? v : fmtMin(v);
 }
 
 function applySettings() {
