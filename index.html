@@ -158,18 +158,33 @@
     }
     .alarm-banner-btn:active { opacity: .8; }
 
-    /* 골키퍼 교체 배너 — 타이머는 계속 흐르므로 숫자를 가리지 않게 상단에 잠깐 표시 */
+    /* 골키퍼 교체 경보 배너 — 타이머는 계속 흐름. 확인 누르거나 약 30초 뒤 자동으로 꺼짐 */
     #gk-banner {
       position: fixed; top: calc(54px + env(safe-area-inset-top, 0px) + 10px);
       left: 50%; transform: translateX(-50%) translateY(-16px);
       z-index: 185;
-      background: var(--panel); border: 2px solid var(--blue); border-radius: 14px;
-      padding: 10px 22px;
-      font-size: 16px; font-weight: 800; color: #fff; white-space: nowrap;
+      width: min(560px, calc(100vw - 32px));
+      background: var(--panel); border: 3px solid var(--blue); border-radius: 18px;
+      padding: 14px 14px 14px 24px;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
       opacity: 0; pointer-events: none;
       transition: opacity .2s, transform .2s;
+      animation: gk-pulse 1s ease-in-out infinite;
     }
     #gk-banner.show { opacity: 1; pointer-events: all; transform: translateX(-50%) translateY(0); }
+    @keyframes gk-pulse {
+      0%, 100% { box-shadow: 0 0 0 rgba(64,196,255,.5); }
+      50%      { box-shadow: 0 0 32px rgba(64,196,255,.8); }
+    }
+    .gk-banner-text { font-size: 28px; font-weight: 900; color: #fff; white-space: nowrap; }
+    .gk-banner-btn {
+      padding: 14px 28px;
+      background: var(--blue); color: #000;
+      border: none; border-radius: 12px;
+      font-size: 18px; font-weight: 900; cursor: pointer;
+      flex-shrink: 0;
+    }
+    .gk-banner-btn:active { opacity: .8; }
 
     /* ── Settings sheet ── */
     .settings-backdrop {
@@ -501,6 +516,17 @@
       display: none;
     }
     body.focus-mode .btn-adj { opacity: 0; pointer-events: none; }
+
+    /* 집중 모드에서 툴바가 숨겨져 있는 동안 그 자리(하단)에 GK 교체까지 남은 시간 */
+    .focus-gk { display: none; }
+    body.focus-mode.gk-show .focus-gk {
+      display: block; margin-top: 2px;
+      font-size: 24px; font-weight: 800; color: var(--blue);
+      font-variant-numeric: tabular-nums; line-height: 1.2;
+      transition: opacity .25s;
+    }
+    body.focus-mode.gk-show.controls-peek .focus-gk { opacity: 0; }
+    body.focus-mode.gk-show .timer-digits { font-size: min(76vh, 32vw); }
     body.focus-mode.controls-peek .btn-adj { opacity: 1; pointer-events: all; }
     body.focus-mode .mode-badge { font-size: 28px; }
     body.focus-mode .screen { grid-template-rows: 0 1fr 0; }
@@ -577,8 +603,11 @@
   <button class="alarm-banner-btn" id="alarm-banner-btn">확인</button>
 </div>
 
-<!-- 골키퍼 교체 알림 (탭하면 닫힘, 6초 후 자동으로 사라짐) -->
-<div id="gk-banner" onclick="hideGkBanner()">🧤 골키퍼 교체</div>
+<!-- 골키퍼 교체 경보 (확인 누르거나 약 30초 뒤 자동으로 소리·배너 꺼짐) -->
+<div id="gk-banner">
+  <div class="gk-banner-text">🧤 골키퍼 교체</div>
+  <button class="gk-banner-btn" onclick="dismissGk()">확인</button>
+</div>
 
 <!-- Settings -->
 <div class="settings-backdrop" id="settings-backdrop" onclick="closeSettings()"></div>
@@ -639,12 +668,12 @@
 
     <div class="setting-row">
       <div class="setting-info">
-        <div class="s-name">교체 시점</div>
+        <div class="s-name">골키퍼 교체</div>
         <div class="s-desc">경기 시작 후 (분)</div>
       </div>
       <div class="stepper">
         <button onclick="adj('gk',-1)">−</button>
-        <div class="stepper-val" id="val-gk">6</div>
+        <div class="stepper-val" id="val-gk">6.5</div>
         <button onclick="adj('gk',+1)">＋</button>
       </div>
     </div>
@@ -729,6 +758,7 @@
       <span class="s-gk" id="s-gk">🧤 GK 교체까지 <span class="s-gk-time" id="s-gk-time"></span></span>
     </div>
     <div class="s-next-row" id="s-next-row"><span id="s-next"></span></div>
+    <div class="focus-gk">🧤 GK 교체까지 <span id="focus-gk-time"></span></div>
   </div>
 
   <div class="focus-tap-catcher" id="focus-tap-catcher" onclick="handleFocusTap()"></div>
@@ -745,7 +775,7 @@
 
 <script>
 // ── Config ────────────────────────────────────────────────
-let cfg = { gameMin: 12.5, brkMin: 0.5, periods: 9, autoBreak: true, soundOn: true, vibrationOn: true, gkOn: true, gkMin: 6 };
+let cfg = { gameMin: 12.5, brkMin: 0.5, periods: 9, autoBreak: true, soundOn: true, vibrationOn: true, gkOn: true, gkMin: 6.5 };
 function loadCfg() {
   try { cfg = { ...cfg, ...JSON.parse(localStorage.getItem('futsal-cfg') || '{}') }; } catch(e) {}
 }
@@ -810,19 +840,19 @@ function soundBrkEnd() {
 }
 // 마지막 10초: 1초마다 짧은 틱
 function soundWarn() { beep(440, .07, .4, 'sine'); }
-// 골키퍼 교체: "띵-동" 두 번 (경기 종료 경보·쉬는시간 종료음과 구분)
+// 골키퍼 교체: "띵-동" 두 번 — 경기 종료 경보와 같은 최대 음량(감쇠 없이 유지)
 function soundGk() {
-  beep(988, .25, .9, 'sine', 0);
-  beep(784, .45, .9, 'sine', .28);
-  beep(988, .25, .9, 'sine', .9);
-  beep(784, .45, .9, 'sine', 1.18);
+  beepSustain(988, .25, 1, 'sine', 0);
+  beepSustain(784, .45, 1, 'sine', .28);
+  beepSustain(988, .25, 1, 'sine', .9);
+  beepSustain(784, .45, 1, 'sine', 1.18);
 }
 
 // 흐르는 중에 교체 시점에 도달했으면 한 번 알림
 function checkGk() {
   if (!st.running || !gkActive() || gkLeft() > 0) return;
   st.gkDone = true;
-  soundGk(); vibe([200,100,200]); showGkBanner();
+  vibe([200,100,200]); startGkAlarm();
 }
 
 // ── 경기 종료 경보 (확인 전까지 반복, 최대 30초 후 자동 중단) ──
@@ -857,6 +887,7 @@ function stopAlarmLoop() {
 function clearAlarm() {
   st.alarmPending = false;
   stopAlarmLoop();
+  stopGkLoop(); st.gkAlarm = false;
 }
 
 function dismissAlarm() {
@@ -891,15 +922,31 @@ const fmtClock = ms => {
 const gkActive = () => cfg.gkOn && st.mode === 'game' && !st.gkDone && cfg.gkMin < cfg.gameMin;
 const gkLeft = () => st.timeLeft - Math.round((cfg.gameMin - cfg.gkMin) * 60); // 교체까지 남은 초
 
-let gkBannerTid = null;
-function showGkBanner() {
-  document.getElementById('gk-banner').classList.add('show');
-  clearTimeout(gkBannerTid);
-  gkBannerTid = setTimeout(hideGkBanner, 6000);
+// 교체 경보: 확인 전까지 반복, 약 30초 후 자동으로 소리·배너 꺼짐 (st.gkAlarm = 배너 표시 중)
+let gkLoopId = null;
+let gkRepeatCount = 0;
+const GK_MAX_REPEATS = 16; // 약 1.9초 * 16회 ≈ 30초
+
+function startGkAlarm() {
+  stopGkLoop();
+  st.gkAlarm = true;
+  gkRepeatCount = 0;
+  const tick = () => {
+    if (gkRepeatCount >= GK_MAX_REPEATS) { dismissGk(); return; }
+    soundGk();
+    gkRepeatCount++;
+    gkLoopId = setTimeout(tick, 1900);
+  };
+  tick();
 }
-function hideGkBanner() {
-  clearTimeout(gkBannerTid); gkBannerTid = null;
-  document.getElementById('gk-banner').classList.remove('show');
+function stopGkLoop() {
+  if (gkLoopId) clearTimeout(gkLoopId);
+  gkLoopId = null;
+}
+function dismissGk() {
+  stopGkLoop();
+  st.gkAlarm = false;
+  render();
 }
 
 // 쉬는시간 길이 표기: 30초 / 1분 / 1분 30초
@@ -1060,7 +1107,12 @@ function render() {
 
   const showGk = gkActive() && gkLeft() > 0;
   document.getElementById('s-gk').style.display = showGk ? '' : 'none';
-  if (showGk) document.getElementById('s-gk-time').textContent = fmt(gkLeft());
+  document.body.classList.toggle('gk-show', showGk);
+  if (showGk) {
+    document.getElementById('s-gk-time').textContent = fmt(gkLeft());
+    document.getElementById('focus-gk-time').textContent = fmt(gkLeft());
+  }
+  document.getElementById('gk-banner').classList.toggle('show', !!st.gkAlarm);
   document.getElementById('s-next-row').style.display = (st.mode !== 'done') ? '' : 'none';
 
   document.getElementById('s-finish-row').style.display = (st.mode !== 'done') ? '' : 'none';
@@ -1163,6 +1215,7 @@ function tick() {
 function onExpire() {
   clearInterval(st.tid);
   st.running = false;
+  stopGkLoop(); st.gkAlarm = false; // 경기 종료 경보로 넘어감
   markSegEnd();
 
   if (st.mode === 'game') {
