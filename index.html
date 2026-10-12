@@ -104,87 +104,45 @@
     .confirm-ok     { background: var(--red);  color: #fff; }
     .confirm-cancel:active, .confirm-ok:active { opacity: .78; }
 
-    /* ── Alarm popup (경기 종료 경보 — 확인 전까지 유지) ── */
-    #alarm-overlay {
-      position: fixed; inset: 0; z-index: 190;
-      background: rgba(0,0,0,.85);
-      display: flex; align-items: center; justify-content: center;
-      opacity: 0; pointer-events: none; transition: opacity .2s;
+    /* ── 경기 종료 / 골키퍼 교체 경보 배너 ──
+       화면 정중앙에 크게(가로 모드에선 화면의 약 80%). 박스 아무 데나 누르면 소리·배너가 꺼짐.
+       경기·쉬는시간 진행에는 영향 없음 (배너는 표시만, 타이머는 그대로 흐름) */
+    .big-alert {
+      position: fixed; left: 50%; top: 50%;
+      transform: translate(-50%, -50%) scale(.92);
+      z-index: 195;
+      width: 80vw; height: 80vh; height: 80dvh;
+      background: rgba(17,24,39,.96);
+      border: 6px solid var(--red); border-radius: 28px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh;
+      cursor: pointer;
+      opacity: 0; pointer-events: none;
+      transition: opacity .2s, transform .2s;
     }
-    #alarm-overlay.show { opacity: 1; pointer-events: all; }
-    .alarm-box {
-      background: var(--panel); border: 2px solid var(--red); border-radius: 20px;
-      padding: 32px 28px 24px;
-      width: min(340px, 88vw);
-      display: flex; flex-direction: column; align-items: center; gap: 10px;
-      text-align: center;
+    .big-alert.show {
+      opacity: 1; pointer-events: all;
+      transform: translate(-50%, -50%) scale(1);
       animation: alarm-pulse 1s ease-in-out infinite;
+    }
+    .big-alert.gk { border-color: var(--blue); }
+    .big-alert.gk.show { animation-name: gk-pulse; }
+    .big-alert-text {
+      font-size: min(30vh, 12vw); font-weight: 900; line-height: 1.1;
+      color: var(--red); white-space: nowrap;
+    }
+    .big-alert.gk .big-alert-text { color: var(--blue); }
+    .big-alert-sub { font-size: min(5vh, 4vw); color: var(--dim); font-weight: 700; }
+    @media (orientation: portrait) {
+      .big-alert { height: auto; padding: 12vh 0; }
     }
     @keyframes alarm-pulse {
       0%, 100% { box-shadow: 0 0 0 rgba(255,23,68,.5); }
-      50%      { box-shadow: 0 0 28px rgba(255,23,68,.7); }
+      50%      { box-shadow: 0 0 60px rgba(255,23,68,.8); }
     }
-    .alarm-icon  { font-size: 40px; }
-    .alarm-title { font-size: 19px; font-weight: 900; color: var(--red); }
-    .alarm-sub   { font-size: 12px; color: var(--dim); margin-bottom: 6px; }
-    .alarm-btn {
-      width: 100%; padding: 15px;
-      background: var(--red); color: #fff;
-      border: none; border-radius: 12px;
-      font-size: 16px; font-weight: 800; cursor: pointer;
-    }
-    .alarm-btn:active { opacity: .8; }
-
-    /* 자동 진행 모드용 — 화면을 가리지 않는 상단 배너 (숫자가 계속 보여야 하니까) */
-    #alarm-banner {
-      position: fixed; top: calc(54px + env(safe-area-inset-top, 0px) + 10px);
-      left: 50%; transform: translateX(-50%) translateY(-16px);
-      z-index: 190;
-      background: var(--panel); border: 2px solid var(--red); border-radius: 14px;
-      padding: 9px 10px 9px 16px;
-      display: flex; align-items: center; gap: 12px;
-      opacity: 0; pointer-events: none;
-      transition: opacity .2s, transform .2s;
-      animation: alarm-pulse 1s ease-in-out infinite;
-    }
-    #alarm-banner.show { opacity: 1; pointer-events: all; transform: translateX(-50%) translateY(0); }
-    .alarm-banner-text { font-size: 13px; font-weight: 800; color: #fff; white-space: nowrap; }
-    .alarm-banner-btn {
-      padding: 7px 16px;
-      background: var(--red); color: #fff;
-      border: none; border-radius: 9px;
-      font-size: 13px; font-weight: 800; cursor: pointer;
-      flex-shrink: 0;
-    }
-    .alarm-banner-btn:active { opacity: .8; }
-
-    /* 골키퍼 교체 경보 배너 — 타이머는 계속 흐름. 확인 누르거나 약 30초 뒤 자동으로 꺼짐 */
-    #gk-banner {
-      position: fixed; top: calc(54px + env(safe-area-inset-top, 0px) + 10px);
-      left: 50%; transform: translateX(-50%) translateY(-16px);
-      z-index: 185;
-      width: min(560px, calc(100vw - 32px));
-      background: var(--panel); border: 3px solid var(--blue); border-radius: 18px;
-      padding: 14px 14px 14px 24px;
-      display: flex; align-items: center; justify-content: space-between; gap: 16px;
-      opacity: 0; pointer-events: none;
-      transition: opacity .2s, transform .2s;
-      animation: gk-pulse 1s ease-in-out infinite;
-    }
-    #gk-banner.show { opacity: 1; pointer-events: all; transform: translateX(-50%) translateY(0); }
     @keyframes gk-pulse {
       0%, 100% { box-shadow: 0 0 0 rgba(64,196,255,.5); }
-      50%      { box-shadow: 0 0 32px rgba(64,196,255,.8); }
+      50%      { box-shadow: 0 0 60px rgba(64,196,255,.8); }
     }
-    .gk-banner-text { font-size: 28px; font-weight: 900; color: #fff; white-space: nowrap; }
-    .gk-banner-btn {
-      padding: 14px 28px;
-      background: var(--blue); color: #000;
-      border: none; border-radius: 12px;
-      font-size: 18px; font-weight: 900; cursor: pointer;
-      flex-shrink: 0;
-    }
-    .gk-banner-btn:active { opacity: .8; }
 
     /* ── Settings sheet ── */
     .settings-backdrop {
@@ -587,26 +545,16 @@
   </div>
 </div>
 
-<!-- 경기 종료 경보 (확인 전까지 유지) -->
-<div id="alarm-overlay">
-  <div class="alarm-box">
-    <div class="alarm-icon">⏱</div>
-    <div class="alarm-title" id="alarm-title-text">경기 종료</div>
-    <div class="alarm-sub">버튼을 눌러 다음 단계를 시작하세요</div>
-    <button class="alarm-btn" id="alarm-btn">확인</button>
-  </div>
+<!-- 경기 종료 경보 (누르면 소리·배너 꺼짐, 약 30초 뒤 자동으로 꺼짐 — 진행에는 영향 없음) -->
+<div id="alarm-banner" class="big-alert" onclick="dismissAlarm()">
+  <div class="big-alert-text">경기 종료</div>
+  <div class="big-alert-sub">눌러서 닫기</div>
 </div>
 
-<!-- 경기 종료 경보 (자동 진행 모드 — 숫자를 가리지 않는 배너) -->
-<div id="alarm-banner">
-  <div class="alarm-banner-text">⏱ 경기 종료</div>
-  <button class="alarm-banner-btn" id="alarm-banner-btn">확인</button>
-</div>
-
-<!-- 골키퍼 교체 경보 (확인 누르거나 약 30초 뒤 자동으로 소리·배너 꺼짐) -->
-<div id="gk-banner">
-  <div class="gk-banner-text">🧤 골키퍼 교체</div>
-  <button class="gk-banner-btn" onclick="dismissGk()">확인</button>
+<!-- 골키퍼 교체 경보 (누르면 소리·배너 꺼짐, 소리 약 10초 · 배너 약 30초 뒤 자동으로 꺼짐) -->
+<div id="gk-banner" class="big-alert gk" onclick="dismissGk()">
+  <div class="big-alert-text">골키퍼 교체</div>
+  <div class="big-alert-sub">눌러서 닫기</div>
 </div>
 
 <!-- Settings -->
@@ -855,10 +803,10 @@ function checkGk() {
   vibe([200,100,200]); startGkAlarm();
 }
 
-// ── 경기 종료 경보 (확인 전까지 반복, 최대 30초 후 자동 중단) ──
+// ── 경기 종료 경보 (누르기 전까지 반복, 약 30초 후 소리·배너 자동 종료) ──
 let alarmLoopId = null;
 let alarmRepeatCount = 0;
-const ALARM_MAX_REPEATS = 18; // 약 1.6초 * 18회 ≈ 29초
+const ALARM_MAX_REPEATS = 19; // 약 1.6초 * 19회 ≈ 30초
 
 function playAlarmBurst() {
   beepSustain(2000, .10, 1, 'square', 0);
@@ -871,7 +819,7 @@ function startAlarmLoop() {
   stopAlarmLoop();
   alarmRepeatCount = 0;
   const tick = () => {
-    if (alarmRepeatCount >= ALARM_MAX_REPEATS) { alarmLoopId = null; return; }
+    if (alarmRepeatCount >= ALARM_MAX_REPEATS) { alarmLoopId = null; dismissAlarm(); return; }
     playAlarmBurst();
     alarmRepeatCount++;
     alarmLoopId = setTimeout(tick, 1600);
@@ -922,10 +870,11 @@ const fmtClock = ms => {
 const gkActive = () => cfg.gkOn && st.mode === 'game' && !st.gkDone && cfg.gkMin < cfg.gameMin;
 const gkLeft = () => st.timeLeft - Math.round((cfg.gameMin - cfg.gkMin) * 60); // 교체까지 남은 초
 
-// 교체 경보: 확인 전까지 반복, 약 30초 후 자동으로 소리·배너 꺼짐 (st.gkAlarm = 배너 표시 중)
+// 교체 경보: 누르기 전까지 소리 약 10초, 배너 약 30초 후 자동 종료 (st.gkAlarm = 배너 표시 중)
 let gkLoopId = null;
 let gkRepeatCount = 0;
-const GK_MAX_REPEATS = 16; // 약 1.9초 * 16회 ≈ 30초
+const GK_SOUND_REPEATS = 5;  // 약 1.9초 * 5회 ≈ 10초
+const GK_MAX_REPEATS = 16;   // 약 1.9초 * 16회 ≈ 30초
 
 function startGkAlarm() {
   stopGkLoop();
@@ -933,7 +882,7 @@ function startGkAlarm() {
   gkRepeatCount = 0;
   const tick = () => {
     if (gkRepeatCount >= GK_MAX_REPEATS) { dismissGk(); return; }
-    soundGk();
+    if (gkRepeatCount < GK_SOUND_REPEATS) soundGk();
     gkRepeatCount++;
     gkLoopId = setTimeout(tick, 1900);
   };
@@ -1131,34 +1080,11 @@ function render() {
   renderTimetable();
 }
 
-// 경기/쉬는시간 종료 경보
-// - 대기 상태(wait-brk/wait-game, 수동 모드): 항상 가운데 팝업으로 통일, 버튼 = 다음 단계 시작
-//   (탭하면 알람도 같이 꺼짐 — executePrev/executeSkip 대신 beginBrk 쪽에서 clearAlarm 처리)
-// - 자동 진행 중인데 경기종료 알람이 아직 안 꺼진 경우: 숫자를 가리지 않는 상단 배너, 버튼 = 확인(알람만 끔)
-// mode==='game'인 동안(전환 애니메이션 1.1초)은 아직 최종 상태가 아니라서 배너를 일부러 숨겨둠
+// 경기 종료 경보 배너: alarmPending 동안 화면 중앙에 크게 표시
+// 누르거나 약 30초가 지나면 소리·배너만 꺼짐 — 경기/쉬는시간 진행에는 영향 없음
+// (자동 진행 OFF 일 때 다음 단계 시작은 하단 메인 버튼으로)
 function renderAlarm() {
-  const overlay = document.getElementById('alarm-overlay');
-  const banner = document.getElementById('alarm-banner');
-  const isWaitState = st.mode === 'wait-brk' || st.mode === 'wait-game';
-
-  if (isWaitState) {
-    banner.classList.remove('show');
-    document.getElementById('alarm-title-text').textContent = st.mode === 'wait-brk' ? '경기 종료' : '쉬는시간 종료';
-    const btn = document.getElementById('alarm-btn');
-    btn.textContent = document.getElementById('main-btn').textContent;
-    btn.onclick = () => handleMain();
-    overlay.classList.add('show');
-  } else {
-    overlay.classList.remove('show');
-  }
-
-  const showBanner = st.alarmPending && !isWaitState && st.mode !== 'done' && st.mode !== 'game';
-  if (showBanner) {
-    document.getElementById('alarm-banner-btn').onclick = () => dismissAlarm();
-    banner.classList.add('show');
-  } else {
-    banner.classList.remove('show');
-  }
+  document.getElementById('alarm-banner').classList.toggle('show', !!st.alarmPending);
 }
 
 function showEndSummary() {
