@@ -591,6 +591,18 @@
     body.focus-mode.controls-peek .btn-adj { opacity: 1; pointer-events: all; }
     body.focus-mode .mode-badge { font-size: 19px; min-height: 0; }
     body.focus-mode .screen { grid-template-rows: 0 1fr 0; }
+    body.focus-mode .timer-wrap {
+      padding-top: calc(6px + env(safe-area-inset-top, 0px));
+      padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+    }
+    body.focus-mode .timer-digits { margin-top: auto; margin-bottom: auto; } /* 남는 공간은 숫자 위아래로 */
+    /* 숫자 크기는 JS fitFocusDigits() 가 남은 공간에 맞춰 계산 (아래 값은 계산 전 기본값) */
+    /* 콜론은 숫자의 50% 크기 — 줄어든 폭만큼 숫자를 더 크게.
+       점의 높이는 숫자 높이 가운데에 오도록 JS 가 기기 글꼴을 재서 --colon-lift 로 지정 */
+    body.focus-mode .timer-digits .colon {
+      font-size: .5em; margin: 0 .04em;
+      vertical-align: var(--colon-lift, .33em);
+    }
     body.focus-mode .timer-digits { font-size: min(85vh, 32vw); }
     body.focus-mode.teams-on .team-label {
       height: clamp(28px, 8.7vh, 48px); font-size: clamp(13px, 4vh, 23px);
@@ -1235,7 +1247,7 @@ function render() {
   const sPeriod = document.getElementById('s-period');
   const sNext   = document.getElementById('s-next');
 
-  digits.textContent = fmt(st.timeLeft);
+  digits.innerHTML = fmt(st.timeLeft).replace(':', '<span class="colon">:</span>');
   const warn = st.running && st.timeLeft <= 60 && st.timeLeft > 0;
   const gkWarn = !warn && st.running && gkActive() && gkLeft() > 0 && gkLeft() <= 60;
   digits.className = 'timer-digits' + (warn ? ' warn' : gkWarn ? ' gk-warn' : '');
@@ -1250,7 +1262,9 @@ function render() {
       break;
 
     case 'game':
-      badge.textContent = '경기중'; badge.className = 'mode-badge';
+      // 전체화면에서는 상태 줄(1 / 9경기)이 숨겨지므로 배지에 경기 번호를 표시
+      badge.textContent = document.body.classList.contains('focus-mode') ? `${st.period}/${cfg.periods} 경기` : '경기중';
+      badge.className = 'mode-badge';
       sRow.className = 'status-row';
       sPeriod.textContent = `${st.period} / ${cfg.periods}경기`;
       sNext.textContent = st.period < cfg.periods ? `다음: 쉬는시간 ${fmtMin(cfg.brkMin)}분` : '마지막 경기';
@@ -1320,6 +1334,50 @@ function render() {
   renderTrack();
   renderTeams();
   renderTimetable();
+  fitFocusDigits();
+}
+
+// ── 집중 모드: 시간 숫자를 남은 공간에 꽉 차게 ─────────────────
+// 화면 비율·카메라 영역·기기 글꼴이 달라도 실제 크기를 재서 가로·세로 중 먼저 닿는 쪽까지 키움
+function fitFocusDigits() {
+  const d = document.getElementById('timer-digits');
+  if (!document.body.classList.contains('focus-mode')) { d.style.fontSize = ''; return; }
+  const wrap = d.parentElement, ws = getComputedStyle(wrap);
+  const w = wrap.clientWidth - parseFloat(ws.paddingLeft) - parseFloat(ws.paddingRight);
+  let h = wrap.clientHeight - parseFloat(ws.paddingTop) - parseFloat(ws.paddingBottom);
+  let shown = 0;
+  for (const c of wrap.children) {
+    if (c === d) continue;
+    const cs = getComputedStyle(c);
+    if (cs.display === 'none') continue;
+    h -= c.offsetHeight + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom);
+    shown++;
+  }
+  h -= (parseFloat(ws.rowGap) || 0) * shown;
+  if (colonLift === null) colonLift = measureColonLift(d);
+  d.style.setProperty('--colon-lift', colonLift + 'em');
+  d.style.fontSize = '100px';
+  const w100 = d.getBoundingClientRect().width;
+  // 0.96: 마지막 1분 박동 애니메이션(1.8% 확대) 여유
+  const fs = Math.min(h, 100 * w / w100) * 0.96;
+  d.style.fontSize = Math.max(40, Math.floor(fs)) + 'px';
+}
+window.addEventListener('resize', fitFocusDigits);
+
+// 50% 크기 콜론의 점 가운데를 숫자 높이 가운데에 맞추기 위한 기준선 올림 값 (콜론 글자 em 기준)
+// 기기마다 고정폭 글꼴이 달라서 실제 글꼴의 숫자·콜론 높이를 재서 계산
+let colonLift = null;
+function measureColonLift(el) {
+  try {
+    const cs = getComputedStyle(el);
+    const ctx = document.createElement('canvas').getContext('2d');
+    ctx.font = `${cs.fontWeight} 100px ${cs.fontFamily}`;
+    const n = ctx.measureText('0'), c = ctx.measureText(':');
+    const digitMid = (n.actualBoundingBoxAscent - n.actualBoundingBoxDescent) / 200; // 숫자 em 기준
+    const colonMid = (c.actualBoundingBoxAscent - c.actualBoundingBoxDescent) / 200; // 콜론 em 기준
+    const lift = (digitMid - colonMid * 0.5) / 0.5;
+    return (isFinite(lift) && lift > -0.5 && lift < 1.5) ? +lift.toFixed(3) : 0.33;
+  } catch (e) { return 0.33; }
 }
 
 // 경기 종료 경보 배너: alarmPending 동안 화면 중앙에 크게 표시
@@ -1633,6 +1691,7 @@ function enterFocusMode() {
     }
   }).catch(() => {});
   setControlsVisible(false); // 큰 숫자만 보이는 상태로 시작, 화면을 탭하면 툴바 표시
+  render();
 }
 
 function exitFocusMode() {
@@ -1644,6 +1703,7 @@ function exitFocusMode() {
     document.exitFullscreen().catch(() => {});
   }
   setControlsVisible(false);
+  render();
 }
 
 // 집중 모드에서 화면을 탭할 때마다 툴바(하단 버튼 + ±10초) 보이기/숨기기
@@ -1670,7 +1730,7 @@ function keepControlsVisible() {
 document.querySelector('.bottom-bar').addEventListener('click', keepControlsVisible);
 
 document.addEventListener('fullscreenchange', () => {
-  if (!document.fullscreenElement) document.body.classList.remove('focus-mode');
+  if (!document.fullscreenElement && document.body.classList.contains('focus-mode')) exitFocusMode();
 });
 
 function closeSettings() {
