@@ -582,26 +582,34 @@
     .focus-gk { display: none; }
     body.focus-mode.gk-show .focus-gk {
       display: block; margin-top: 2px;
-      font-size: 24px; font-weight: 800; color: var(--blue);
+      font-size: 16px; font-weight: 800; color: var(--blue);
       font-variant-numeric: tabular-nums; line-height: 1.2;
       transition: opacity .25s;
     }
     body.focus-mode.gk-show.controls-peek .focus-gk { opacity: 0; }
-    body.focus-mode.gk-show .timer-digits { font-size: min(76vh, 32vw); }
+    body.focus-mode.gk-show .timer-digits { font-size: min(80vh, 32vw); }
     body.focus-mode.controls-peek .btn-adj { opacity: 1; pointer-events: all; }
-    body.focus-mode .mode-badge { font-size: 28px; }
+    body.focus-mode .mode-badge { font-size: 19px; min-height: 0; }
     body.focus-mode .screen { grid-template-rows: 0 1fr 0; }
     body.focus-mode .timer-digits { font-size: min(85vh, 32vw); }
     body.focus-mode.teams-on .team-label {
-      height: clamp(40px, 13vh, 72px); font-size: clamp(18px, 6vh, 34px);
-      border-radius: 14px; gap: 10px;
+      height: clamp(28px, 8.7vh, 48px); font-size: clamp(13px, 4vh, 23px);
+      border-radius: 10px; gap: 7px;
     }
-    body.focus-mode.teams-on .timer-digits { font-size: min(66vh, 32vw); }
-    body.focus-mode.teams-on.gk-show .timer-digits { font-size: min(60vh, 32vw); }
-    body.focus-mode .swap-row { font-size: clamp(16px, 5vh, 26px); }
+    /* 숫자는 화면 폭(32vw)까지 키움 — 라벨·문구를 줄인 만큼 세로 여유가 생김 */
+    body.focus-mode.teams-on .timer-digits { font-size: min(78vh, 32vw); }
+    body.focus-mode.teams-on.gk-show .timer-digits { font-size: min(74vh, 32vw); }
+    body.focus-mode .swap-row { font-size: clamp(12px, 3.3vh, 18px); margin-top: 2px; }
+    body.focus-mode .swap-pill { padding: 3px 9px; border-radius: 7px; }
+    /* 집중 모드 툴바(±10초·하단 버튼)도 2/3 크기 */
+    body.focus-mode .btn-adj { height: 24px; padding: 0 10px; font-size: 11px; border-radius: 7px; }
+    body.focus-mode .btn-reset,
+    body.focus-mode .btn-skip { height: 28px; width: clamp(27px, 7.3vw, 37px); font-size: 12px; border-radius: 8px; }
+    body.focus-mode .btn-main { height: 28px; font-size: 11px; border-radius: 8px; }
 
     body.focus-mode .bottom-bar {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+      padding-top: 5px; padding-bottom: calc(5px + env(safe-area-inset-bottom, 0px));
       background: rgba(0,0,0,.75);
       opacity: 0; pointer-events: none;
       transition: opacity .25s;
@@ -661,7 +669,7 @@
   <div class="big-alert-sub">눌러서 닫기</div>
 </div>
 
-<!-- 골키퍼 교체 경보 (누르면 소리·배너 꺼짐, 소리 약 10초 · 배너 약 30초 뒤 자동으로 꺼짐) -->
+<!-- 골키퍼 교체 경보 (누르면 소리·배너 꺼짐, 소리 약 15초 · 배너 약 30초 뒤 자동으로 꺼짐) -->
 <div id="gk-banner" class="big-alert gk" onclick="dismissGk()">
   <div class="big-alert-text">골키퍼 교체</div>
   <div class="big-alert-sub">눌러서 닫기</div>
@@ -1021,11 +1029,11 @@ const fmtClock = ms => {
 const gkActive = () => cfg.gkOn && st.mode === 'game' && !st.gkDone && cfg.gkMin < cfg.gameMin;
 const gkLeft = () => st.timeLeft - Math.round((cfg.gameMin - cfg.gkMin) * 60); // 교체까지 남은 초
 
-// 교체 경보: 누르기 전까지 소리 약 10초, 배너 약 30초 후 자동 종료 (st.gkAlarm = 배너 표시 중)
+// 교체 경보: 누르기 전까지 소리 약 15초, 배너 약 30초 후 자동 종료 (st.gkAlarm = 배너 표시 중)
 let gkLoopId = null;
 let gkRepeatCount = 0;
 const GK_INTERVAL_MS = 2400; // 경기 종료 경보 반복 간격(1.6초)의 1.5배
-const GK_SOUND_REPEATS = 4;  // 2.4초 * 4회 ≈ 10초 이내
+const GK_SOUND_REPEATS = 7;  // 2.4초 간격 7회 ≈ 15초
 const GK_MAX_REPEATS = 12;   // 2.4초 * 12회 ≈ 29초
 
 function startGkAlarm() {
@@ -1453,6 +1461,7 @@ function handleMain() {
 
 // ±10초: 현재 흐르는 구간의 남은 시간만 조정 (설정된 경기/쉬는시간 길이는 그대로)
 function handleAdjust(delta) {
+  keepControlsVisible();
   if (transitionTid !== null) return;
   if (st.mode !== 'game' && st.mode !== 'brk') return;
   const next = Math.max(1, st.timeLeft + delta);
@@ -1638,6 +1647,8 @@ function exitFocusMode() {
 }
 
 // 집중 모드에서 화면을 탭할 때마다 툴바(하단 버튼 + ±10초) 보이기/숨기기
+// 보이는 상태로 3초가 지나면 자동으로 숨김 (툴바 버튼을 누르면 3초를 다시 셈)
+let focusHideTimer = null;
 function handleFocusTap() {
   setControlsVisible(!document.body.classList.contains('controls-peek'));
 }
@@ -1650,7 +1661,13 @@ function toggleFocusMode() {
 function setControlsVisible(on) {
   document.querySelector('.bottom-bar').classList.toggle('peek', on);
   document.body.classList.toggle('controls-peek', on); // ±10초 버튼도 함께
+  clearTimeout(focusHideTimer);
+  if (on) focusHideTimer = setTimeout(() => setControlsVisible(false), 3000);
 }
+function keepControlsVisible() {
+  if (document.body.classList.contains('controls-peek')) setControlsVisible(true);
+}
+document.querySelector('.bottom-bar').addEventListener('click', keepControlsVisible);
 
 document.addEventListener('fullscreenchange', () => {
   if (!document.fullscreenElement) document.body.classList.remove('focus-mode');
