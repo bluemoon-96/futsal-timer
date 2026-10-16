@@ -22,6 +22,10 @@
       --surf:   #1f2937;
       --dim:    #6b7280;
       --blue:   #40c4ff;
+      /* 팀 로테이션 색상 (어두운 배경 대비) — YELLOW 는 글자를 어둡게 */
+      --team-red:    #ef4444;
+      --team-blue:   #3b82f6;
+      --team-yellow: #facc15;
     }
 
     html, body {
@@ -33,6 +37,8 @@
       user-select: none;
       -webkit-user-select: none;
       touch-action: manipulation;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
     }
 
 
@@ -197,6 +203,14 @@
     .setting-row.span2 { grid-column: 1 / -1; }
     .setting-info .s-name { font-size: 14px; font-weight: 600; }
     .setting-info .s-desc { font-size: 11px; color: var(--dim); margin-top: 1px; }
+    .team-select {
+      background: var(--bg); color: #fff;
+      border: 1px solid #374151; border-radius: 10px;
+      padding: 10px 6px; font-size: 13px; font-weight: 700;
+      min-width: 0; max-width: 70%;
+    }
+    @media (max-width: 400px) { .team-select { font-size: 12px; padding: 10px 4px; } }
+    .setting-row.team-dep.dim { opacity: .35; pointer-events: none; }
     .settings-note {
       font-size: 11px; color: var(--dim);
       text-align: center; margin-top: 14px;
@@ -247,13 +261,15 @@
         calc(54px + env(safe-area-inset-top, 0px))
         1fr
         calc(58px + env(safe-area-inset-bottom, 0px));
+      grid-template-columns: minmax(0, 1fr); /* 내용이 넓어도 화면 폭을 넘지 않게 */
     }
 
     /* ── Top bar ── */
     .top-bar {
       display: flex; align-items: flex-start;
       padding: calc(env(safe-area-inset-top, 0px) + 18px) calc(14px + env(safe-area-inset-right, 0px)) 0 calc(14px + env(safe-area-inset-left, 0px));
-      gap: 12px;
+      gap: clamp(6px, 2.5vw, 12px);
+      min-width: 0;
     }
     .app-name {
       align-self: center;
@@ -263,7 +279,7 @@
     }
     .period-track {
       align-self: center;
-      flex: 1; height: 34px;
+      flex: 1; height: 34px; min-width: 0;
       display: flex; align-items: center; gap: 6px;
       overflow: hidden;
     }
@@ -289,7 +305,7 @@
 
     /* ── Timer center ── */
     .timer-wrap {
-      grid-row: 2;
+      grid-row: 2; min-width: 0;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
       gap: 2px; overflow: hidden;
@@ -351,12 +367,19 @@
     /* 전체 경기 종료 시각 (상단 바 오른쪽) + 타임테이블 아이콘 */
     .match-finish-corner {
       align-self: center;
-      display: flex; align-items: center; gap: 8px;
+      display: flex; align-items: center; gap: clamp(4px, 1.5vw, 8px);
       flex-shrink: 0;
     }
     .mfc-label { font-size: 12px; color: var(--dim); white-space: nowrap; }
     .mfc-time  { font-size: 18px; color: #9ca3af; font-weight: 700; font-variant-numeric: tabular-nums; }
     @media (max-width: 380px) { .mfc-label { display: none; } }
+    /* 좁은 세로 화면: 앱 이름 글자 생략, 진행 점 축소 */
+    @media (max-width: 400px) {
+      .app-name-text { display: none; }
+      .period-track { gap: 4px; }
+      .dot { width: 6px; height: 6px; }
+      .mfc-time { font-size: 16px; }
+    }
     .btn-tt {
       background: var(--surf); border: none; color: #9ca3af;
       width: 34px; height: 34px; border-radius: 9px;
@@ -370,8 +393,10 @@
     .mode-line {
       align-self: stretch;
       display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+      grid-template-areas: "minus badge plus";
       padding: 0 calc(6px + env(safe-area-inset-right, 0px)) 0 calc(6px + env(safe-area-inset-left, 0px));
     }
+    .mode-line .mode-badge { grid-area: badge; }
     .btn-adj {
       height: 36px; padding: 0 14px;
       background: var(--surf); color: #9ca3af;
@@ -382,8 +407,65 @@
       transition: opacity .25s;
     }
     .btn-adj:active { background: #374151; }
-    .btn-adj.minus { justify-self: start; }
-    .btn-adj.plus  { justify-self: end; }
+    .btn-adj.minus { justify-self: start; grid-area: minus; }
+    .btn-adj.plus  { justify-self: end; grid-area: plus; }
+
+    /* ── 팀 로테이션: 경기중 배지 좌·우 팀 라벨 (좌측 = ⚽ 선축) ── */
+    .team-label {
+      display: none;
+      align-items: center; justify-content: center; gap: 6px;
+      min-width: 0; height: 36px; padding: 0 10px;
+      border-radius: 10px;
+      font-size: 16px; font-weight: 900; letter-spacing: .5px; color: #fff;
+      white-space: nowrap; overflow: hidden;
+    }
+    .team-label.left  { grid-area: left; }
+    .team-label.right { grid-area: right; }
+    body.teams-on .team-label { display: flex; }
+    .tl-name { overflow: hidden; text-overflow: ellipsis; }
+    .tl-gk {
+      flex-shrink: 0; min-width: 1.7em; padding: 1px 6px;
+      border-radius: 6px; background: rgba(0,0,0,.3);
+      text-align: center; font-variant-numeric: tabular-nums;
+    }
+    .RED    { background: var(--team-red);    color: #fff; }
+    .BLUE   { background: var(--team-blue);   color: #fff; }
+    .YELLOW { background: var(--team-yellow); color: #1a1a1a; }
+    .team-label.YELLOW .tl-gk { background: rgba(0,0,0,.15); }
+    body.teams-on .mode-line {
+      grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr) auto;
+      grid-template-areas: "minus left badge right plus";
+      column-gap: 8px;
+    }
+    /* 세로 화면: 팀 라벨이 배지 좌·우, ±10초는 그 아래 줄 양끝 */
+    @media (max-width: 599px) {
+      body.teams-on .mode-line {
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+        grid-template-areas: "left badge right" "minus . plus";
+        row-gap: 6px;
+      }
+      body.teams-on .mode-badge { font-size: 18px; letter-spacing: 1px; }
+    }
+    /* 아주 좁은 화면(화면 확대 기기 등): "⚽ YELLOW 6" 이 잘리지 않게 라벨·배지를 더 압축 */
+    @media (max-width: 400px) {
+      .team-label { font-size: 13px; letter-spacing: 0; padding: 0 6px; gap: 4px; }
+      .tl-gk { min-width: 1.5em; padding: 1px 4px; }
+      body.teams-on .mode-badge { font-size: 15px; letter-spacing: 0; }
+      body.teams-on .mode-line { column-gap: 6px; }
+    }
+
+    /* 쉬는시간·대기 중 교체 안내: [BLUE OUT] · [YELLOW IN] */
+    .swap-row {
+      display: none; align-items: center; justify-content: center;
+      gap: 8px; flex-wrap: wrap; margin-top: 6px;
+      font-size: 16px; font-weight: 800; color: var(--dim);
+    }
+    body.teams-on .swap-row.show { display: flex; }
+    .swap-pill { padding: 4px 12px; border-radius: 9px; font-weight: 900; white-space: nowrap; }
+    /* 교체 안내가 보이는 동안은 "다음: …" 줄 대신 표시 (가로 화면 세로 공간 확보) */
+    body.swap-show .s-next-row { display: none; }
+    /* 팀 라벨 줄이 추가되므로 가로 화면에서 숫자를 약간 줄임 (세로 화면은 폭 기준이라 영향 없음) */
+    body.teams-on .timer-digits { font-size: min(46dvh, 28vw); }
     .btn-adj.hidden { visibility: hidden; }
 
     /* ── Timetable popup (열려 있어도 타이머는 계속 진행) ── */
@@ -418,6 +500,20 @@
     .tt-name  { font-weight: 700; white-space: nowrap; }
     .tt-row.brk .tt-name { color: var(--yellow); }
     .tt-range { color: #d1d5db; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    body.teams-on .tt-box { width: min(420px, 95vw); }
+    body.teams-on .tt-row { gap: 8px; }
+    .tt-teams {
+      flex: 1; min-width: 0;
+      display: flex; align-items: center; justify-content: center; gap: 3px;
+    }
+    .tchip {
+      min-width: 20px; height: 20px; padding: 0 4px;
+      border-radius: 5px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 900; font-variant-numeric: tabular-nums;
+    }
+    .tchip.wide { min-width: 42px; padding: 0 8px; }
+    .tt-vs { font-size: 10px; color: var(--dim); margin: 0 3px; }
     .tt-row.past { opacity: .4; }
     .tt-row.cur  { background: rgba(0,230,118,.10); border-radius: 8px; border-bottom-color: transparent; }
     .tt-row.cur.brk { background: rgba(255,202,40,.10); }
@@ -433,10 +529,11 @@
     .bottom-bar {
       display: flex; align-items: flex-start;
       padding: 8px calc(14px + env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) calc(14px + env(safe-area-inset-left, 0px));
-      gap: 10px;
+      gap: clamp(6px, 2vw, 10px);
+      min-width: 0;
     }
     .btn-reset {
-      height: 42px; padding: 0 18px;
+      height: 42px; padding: 0; width: clamp(40px, 11vw, 56px);
       background: var(--surf); color: #9ca3af;
       border: none; border-radius: 11px;
       font-size: 19px; cursor: pointer;
@@ -446,9 +543,10 @@
     .btn-reset:active { background: #374151; }
     .btn-reset:disabled { opacity: .35; pointer-events: none; }
     .btn-main {
-      flex: 1; height: 42px;
+      flex: 1; height: 42px; min-width: 0; padding: 0 6px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       border: none; border-radius: 11px;
-      font-size: 16px; font-weight: 800; cursor: pointer;
+      font-size: clamp(13px, 4vw, 16px); font-weight: 800; cursor: pointer;
       background: var(--green); color: #000;
       transition: background .3s;
       letter-spacing: .5px;
@@ -457,7 +555,7 @@
     .btn-main:active { opacity: .75; }
 
     .btn-skip {
-      height: 42px; padding: 0 18px;
+      height: 42px; padding: 0; width: clamp(40px, 11vw, 54px);
       background: var(--surf); color: #9ca3af;
       border: none; border-radius: 11px;
       font-size: 17px; cursor: pointer;
@@ -494,6 +592,13 @@
     body.focus-mode .mode-badge { font-size: 28px; }
     body.focus-mode .screen { grid-template-rows: 0 1fr 0; }
     body.focus-mode .timer-digits { font-size: min(85vh, 32vw); }
+    body.focus-mode.teams-on .team-label {
+      height: clamp(40px, 13vh, 72px); font-size: clamp(18px, 6vh, 34px);
+      border-radius: 14px; gap: 10px;
+    }
+    body.focus-mode.teams-on .timer-digits { font-size: min(66vh, 32vw); }
+    body.focus-mode.teams-on.gk-show .timer-digits { font-size: min(60vh, 32vw); }
+    body.focus-mode .swap-row { font-size: clamp(16px, 5vh, 26px); }
 
     body.focus-mode .bottom-bar {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
@@ -633,6 +738,44 @@
 
     <div class="setting-row span2">
       <div class="setting-info">
+        <div class="s-name">팀 로테이션</div>
+        <div class="s-desc">RED·BLUE·YELLOW 3팀, 쿼터마다 2팀 출전 (즉시 반영)</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="toggle-team" onchange="syncTeamDim()">
+        <div class="toggle-track"></div>
+      </label>
+    </div>
+
+    <div class="setting-row span2 team-dep">
+      <div class="setting-info">
+        <div class="s-name">팀 순서</div>
+        <div class="s-desc">1·2번 팀이 1쿼터 출전</div>
+      </div>
+      <select class="team-select" id="sel-team-order">
+        <option value="0">RED → BLUE → YELLOW</option>
+        <option value="1">RED → YELLOW → BLUE</option>
+        <option value="2">BLUE → RED → YELLOW</option>
+        <option value="3">BLUE → YELLOW → RED</option>
+        <option value="4">YELLOW → RED → BLUE</option>
+        <option value="5">YELLOW → BLUE → RED</option>
+      </select>
+    </div>
+
+    <div class="setting-row span2 team-dep">
+      <div class="setting-info">
+        <div class="s-name">참가 인원</div>
+        <div class="s-desc">팀당 인원 (골키퍼 순번)</div>
+      </div>
+      <div class="stepper">
+        <button onclick="adj('team',-1)">−</button>
+        <div class="stepper-val" id="val-team">6</div>
+        <button onclick="adj('team',+1)">＋</button>
+      </div>
+    </div>
+
+    <div class="setting-row span2">
+      <div class="setting-info">
         <div class="s-name">자동 진행</div>
         <div class="s-desc">경기↔쉬는시간 자동 전환 (다음부터 적용)</div>
       </div>
@@ -681,14 +824,14 @@
     </div>
 
   </div>
-  <div class="settings-note">※ 시간·경기 수 변경은 다음 경기/쉬는시간부터 반영됩니다</div>
+  <div class="settings-note">※ 시간·경기 수 변경은 다음 경기/쉬는시간부터, 팀 설정은 즉시 반영됩니다</div>
 </div>
 
 <!-- MAIN SCREEN -->
 <div class="screen">
 
   <div class="top-bar">
-    <div class="app-name">⚽ Futsal</div>
+    <div class="app-name">⚽<span class="app-name-text"> Futsal</span></div>
     <div class="period-track" id="period-track"></div>
     <div class="match-finish-corner" id="match-finish-corner">
       <span class="mfc-label">전체 경기 종료</span>
@@ -701,7 +844,9 @@
   <div class="timer-wrap">
     <div class="mode-line">
       <button class="btn-adj minus hidden" id="adj-minus-btn" onclick="handleAdjust(-10)">−10초</button>
+      <div class="team-label left" id="team-left"></div>
       <div class="mode-badge" id="mode-badge"></div>
+      <div class="team-label right" id="team-right"></div>
       <button class="btn-adj plus hidden" id="adj-plus-btn" onclick="handleAdjust(10)">+10초</button>
     </div>
     <div class="timer-digits" id="timer-digits">20:00</div>
@@ -711,6 +856,7 @@
       <span class="s-gk" id="s-gk">🧤 GK 교체까지 <span class="s-gk-time" id="s-gk-time"></span></span>
     </div>
     <div class="s-next-row" id="s-next-row"><span id="s-next"></span></div>
+    <div class="swap-row" id="swap-row"></div>
     <div class="focus-gk">🧤 GK 교체까지 <span id="focus-gk-time"></span></div>
   </div>
 
@@ -728,7 +874,7 @@
 
 <script>
 // ── Config ────────────────────────────────────────────────
-let cfg = { gameMin: 12.5, brkMin: 0.5, periods: 9, autoBreak: true, soundOn: true, vibrationOn: true, gkOn: true, gkMin: 6.5 };
+let cfg = { gameMin: 12.5, brkMin: 0.5, periods: 9, autoBreak: true, soundOn: true, vibrationOn: true, gkOn: true, gkMin: 6.5, teamOn: false, teamOrder: 0, teamSize: 6 };
 function loadCfg() {
   try { cfg = { ...cfg, ...JSON.parse(localStorage.getItem('futsal-cfg') || '{}') }; } catch(e) {}
 }
@@ -904,6 +1050,85 @@ function dismissGk() {
   render();
 }
 
+// ── 팀 로테이션 ───────────────────────────────────────────
+// 순서상 A·B·C → 쿼터 1,4,7…: 좌 A / 우 B / 휴식 C, 2,5,8…: 좌 C / 우 A / 휴식 B, 3,6,9…: 좌 B / 우 C / 휴식 A
+// 좌측 = ⚽ 선축. 직전 쿼터 휴식 팀이 IN(좌측 선축), 직전 쿼터 우측 팀이 OUT
+const TEAM_ORDERS = [
+  ['RED', 'BLUE', 'YELLOW'], ['RED', 'YELLOW', 'BLUE'], ['BLUE', 'RED', 'YELLOW'],
+  ['BLUE', 'YELLOW', 'RED'], ['YELLOW', 'RED', 'BLUE'], ['YELLOW', 'BLUE', 'RED'],
+];
+function quarterTeams(q) { // [좌, 우, 휴식]
+  const [A, B, C] = TEAM_ORDERS[cfg.teamOrder] || TEAM_ORDERS[0];
+  return [[A, B, C], [C, A, B], [B, C, A]][(q - 1) % 3];
+}
+// 쿼터당 골키퍼 구간 수: 교체 알림 ON 이고 교체 시간 < 경기 시간이면 2, 아니면 1
+const gkSegs = () => (cfg.gkOn && cfg.gkMin < cfg.gameMin) ? 2 : 1;
+// 골키퍼 번호 = N − (g mod N), g = 팀이 (쿼터 q, 구간 k) 이전에 뛴 골키퍼 구간 수. 쉬는 쿼터엔 넘어가지 않음
+function gkNumber(team, q, k) {
+  let played = 0;
+  for (let i = 1; i < q; i++) { const [l, r] = quarterTeams(i); if (l === team || r === team) played++; }
+  const N = cfg.teamSize;
+  return N - ((played * gkSegs() + k) % N);
+}
+const gkNums = (team, q) => gkSegs() === 2 ? [gkNumber(team, q, 0), gkNumber(team, q, 1)] : [gkNumber(team, q, 0)];
+
+// 화면에 보여줄 쿼터: 경기 전엔 1쿼터, 경기 중엔 현재 쿼터, 쉬는시간·대기 중엔 다음 쿼터
+function displayQuarter() {
+  if (st.mode === 'idle') return 1;
+  if (st.mode === 'game') return st.period;
+  return st.period + 1;
+}
+// 현재 골키퍼 구간: 경기 중 교체 시점(시계 기준)을 지났으면 1 → ±10초에도 즉시 다시 계산
+const curGkSeg = () =>
+  (st.mode === 'game' && gkSegs() === 2 && st.timeLeft <= Math.round((cfg.gameMin - cfg.gkMin) * 60)) ? 1 : 0;
+
+function teamLabelHtml(team, n, left) {
+  return (left ? '<span class="tl-ball">⚽</span>' : '')
+    + `<span class="tl-name">${team}</span><span class="tl-gk">${n}</span>`;
+}
+const swapHtml = q => {
+  const [IN, , OUT] = quarterTeams(q);
+  return `<span class="swap-pill ${OUT}">${OUT} OUT</span> · <span class="swap-pill ${IN}">${IN} IN</span>`;
+};
+
+function renderTeams() {
+  const on = !!cfg.teamOn && st.mode !== 'done';
+  document.body.classList.toggle('teams-on', on);
+  const swap = document.getElementById('swap-row');
+  if (!on) { swap.classList.remove('show'); document.body.classList.remove('swap-show'); return; }
+  const q = displayQuarter();
+  const [L, R] = quarterTeams(q);
+  const k = curGkSeg();
+  const left = document.getElementById('team-left'), right = document.getElementById('team-right');
+  left.className = `team-label left ${L}`;
+  left.innerHTML = teamLabelHtml(L, gkNumber(L, q, k), true);
+  right.className = `team-label right ${R}`;
+  right.innerHTML = teamLabelHtml(R, gkNumber(R, q, k), false);
+  const between = ['brk', 'wait-brk', 'wait-game'].includes(st.mode) && q <= cfg.periods;
+  swap.classList.toggle('show', between);
+  document.body.classList.toggle('swap-show', between);
+  if (between) swap.innerHTML = swapHtml(q);
+}
+
+// 타임테이블 행의 대진 칩: 경기 = 팀 색 골키퍼 번호, 쉬는시간 = OUT/IN
+function ttTeamsHtml(r) {
+  if (!cfg.teamOn) return '';
+  if (r.isGame) {
+    const [L, R] = quarterTeams(r.period);
+    const chips = t => gkNums(t, r.period).map(n => `<span class="tchip ${t}">${n}</span>`).join('');
+    return `<span class="tt-teams">${chips(L)}<span class="tt-vs">vs</span>${chips(R)}</span>`;
+  }
+  const [IN, , OUT] = quarterTeams(r.period + 1);
+  return `<span class="tt-teams"><span class="tchip wide ${OUT}">OUT</span><span class="tchip wide ${IN}">IN</span></span>`;
+}
+
+// 설정 시트: 팀 로테이션이 꺼져 있으면 순서·인원 DIM + 조작 불가
+function syncTeamDim() {
+  const on = document.getElementById('toggle-team').checked;
+  document.querySelectorAll('.team-dep').forEach(el => el.classList.toggle('dim', !on));
+  document.getElementById('sel-team-order').disabled = !on;
+}
+
 // 쉬는시간 길이 표기: 30초 / 1분 / 1분 30초
 const fmtDur = sec => {
   const m = Math.floor(sec / 60), s = Math.round(sec % 60);
@@ -986,6 +1211,7 @@ function renderTimetable() {
     else                range = `${fmtClock(r.start)} ~ –`;
     return `<div class="tt-row ${r.status}${r.isGame ? '' : ' brk'}">`
       + `<span class="tt-name">${r.isGame ? `${r.period}경기` : '쉬는시간'}</span>`
+      + ttTeamsHtml(r)
       + `<span class="tt-range">${range}</span></div>`;
   }).join('');
   const last = rows[rows.length - 1];
@@ -1084,6 +1310,7 @@ function render() {
 
   renderAlarm();
   renderTrack();
+  renderTeams();
   renderTimetable();
 }
 
@@ -1111,15 +1338,15 @@ function renderTrack() {
         + (i === st.period && st.mode !== 'idle' ? ' active' : '');
       wrap.appendChild(d);
     }
-  } else {
-    // Many periods: show text
-    const txt = document.createElement('span');
-    txt.className = 'period-text';
-    txt.textContent = st.mode === 'idle'
-      ? `총 ${cfg.periods}경기`
-      : `${st.period} / ${cfg.periods}`;
-    wrap.appendChild(txt);
+    if (wrap.scrollWidth <= wrap.clientWidth) return;
+    wrap.innerHTML = ''; // 좁은 화면에서 점이 다 안 들어가면 텍스트로
   }
+  const txt = document.createElement('span');
+  txt.className = 'period-text';
+  txt.textContent = st.mode === 'idle'
+    ? `총 ${cfg.periods}경기`
+    : `${st.period} / ${cfg.periods}`;
+  wrap.appendChild(txt);
 }
 
 // ── Timer core ────────────────────────────────────────────
@@ -1360,6 +1587,10 @@ function openSettings() {
   document.getElementById('val-periods').textContent   = cfg.periods;
   document.getElementById('val-gk').textContent        = fmtMin(cfg.gkMin);
   document.getElementById('toggle-gk').checked         = cfg.gkOn;
+  document.getElementById('toggle-team').checked       = !!cfg.teamOn;
+  document.getElementById('sel-team-order').value      = String(cfg.teamOrder || 0);
+  document.getElementById('val-team').textContent      = cfg.teamSize;
+  syncTeamDim();
   document.getElementById('toggle-auto').checked       = cfg.autoBreak;
   document.getElementById('toggle-sound').checked      = cfg.soundOn;
   document.getElementById('toggle-vibration').checked  = cfg.vibrationOn;
@@ -1431,6 +1662,9 @@ function closeSettings() {
   cfg.periods     = parseInt(document.getElementById('val-periods').textContent);
   cfg.gkMin       = parseFloat(document.getElementById('val-gk').textContent);
   cfg.gkOn        = document.getElementById('toggle-gk').checked;
+  cfg.teamOn      = document.getElementById('toggle-team').checked;
+  cfg.teamOrder   = parseInt(document.getElementById('sel-team-order').value);
+  cfg.teamSize    = parseInt(document.getElementById('val-team').textContent);
   cfg.autoBreak   = document.getElementById('toggle-auto').checked;
   cfg.soundOn     = document.getElementById('toggle-sound').checked;
   cfg.vibrationOn = document.getElementById('toggle-vibration').checked;
@@ -1447,12 +1681,14 @@ function closeSettings() {
 }
 
 // 경기·쉬는 시간은 0.5분(30초) 단위, 경기 수는 1 단위
+// 경기·쉬는·교체 시간은 0.5분(30초) 단위, 경기 수·참가 인원은 1 단위 (참가 인원 1~20)
 function adj(key, dir) {
-  const map = { game: 'gameMin', brk: 'brkMin', periods: 'periods', gk: 'gkMin' };
-  const step = key === 'periods' ? 1 : 0.5;
-  const v = Math.max(step, cfg[map[key]] + dir * step);
+  const map = { game: 'gameMin', brk: 'brkMin', periods: 'periods', gk: 'gkMin', team: 'teamSize' };
+  const step = (key === 'periods' || key === 'team') ? 1 : 0.5;
+  const max = key === 'team' ? 20 : Infinity;
+  const v = Math.min(max, Math.max(step, cfg[map[key]] + dir * step));
   cfg[map[key]] = v;
-  document.getElementById('val-' + key).textContent = key === 'periods' ? v : fmtMin(v);
+  document.getElementById('val-' + key).textContent = step === 1 ? v : fmtMin(v);
 }
 
 function applySettings() {
