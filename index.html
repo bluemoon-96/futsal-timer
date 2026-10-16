@@ -595,7 +595,11 @@
       padding-top: calc(6px + env(safe-area-inset-top, 0px));
       padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
     }
-    body.focus-mode .timer-digits { margin-top: auto; margin-bottom: auto; } /* 남는 공간은 숫자 위아래로 */
+    body.focus-mode .timer-digits {
+      margin-top: auto; margin-bottom: auto; /* 남는 공간은 숫자 위아래로 */
+      position: relative;                     /* JS 가 줄 높이를 숫자 실제 높이로 줄인 뒤 위치 보정(top) */
+      letter-spacing: -.04em;                 /* 고정폭 숫자 양옆 빈 간격을 조금 줄여 더 크게 */
+    }
     /* 숫자 크기는 JS fitFocusDigits() 가 남은 공간에 맞춰 계산 (아래 값은 계산 전 기본값) */
     /* 콜론은 숫자의 50% 크기 — 줄어든 폭만큼 숫자를 더 크게.
        점의 높이는 숫자 높이 가운데에 오도록 JS 가 기기 글꼴을 재서 --colon-lift 로 지정 */
@@ -1341,7 +1345,10 @@ function render() {
 // 화면 비율·카메라 영역·기기 글꼴이 달라도 실제 크기를 재서 가로·세로 중 먼저 닿는 쪽까지 키움
 function fitFocusDigits() {
   const d = document.getElementById('timer-digits');
-  if (!document.body.classList.contains('focus-mode')) { d.style.fontSize = ''; return; }
+  if (!document.body.classList.contains('focus-mode')) {
+    d.style.fontSize = ''; d.style.lineHeight = ''; d.style.top = '';
+    return;
+  }
   const wrap = d.parentElement, ws = getComputedStyle(wrap);
   const w = wrap.clientWidth - parseFloat(ws.paddingLeft) - parseFloat(ws.paddingRight);
   let h = wrap.clientHeight - parseFloat(ws.paddingTop) - parseFloat(ws.paddingBottom);
@@ -1354,30 +1361,48 @@ function fitFocusDigits() {
     shown++;
   }
   h -= (parseFloat(ws.rowGap) || 0) * shown;
-  if (colonLift === null) colonLift = measureColonLift(d);
-  d.style.setProperty('--colon-lift', colonLift + 'em');
+  if (!digitMetrics) digitMetrics = measureDigitMetrics(d);
+  const m = digitMetrics, inkH = m.inkA + m.inkD;
+  d.style.setProperty('--colon-lift', m.colonLift + 'em');
+  // 글꼴의 위아래 빈 공간까지 포함한 줄 높이(약 1.4배) 대신 숫자 실제 높이로 줄을 맞추고,
+  // 숫자 윗면이 줄 윗면에 오도록 위치 보정 → 세로 공간을 숫자가 실제로 채움
+  d.style.lineHeight = inkH.toFixed(3);
+  d.style.top = (-((inkH - m.fontA - m.fontD) / 2 + m.fontA - m.inkA)).toFixed(3) + 'em';
   d.style.fontSize = '100px';
   const w100 = d.getBoundingClientRect().width;
   // 0.96: 마지막 1분 박동 애니메이션(1.8% 확대) 여유
-  const fs = Math.min(h, 100 * w / w100) * 0.96;
+  const fs = Math.min(h / inkH, 100 * w / w100) * 0.96;
   d.style.fontSize = Math.max(40, Math.floor(fs)) + 'px';
 }
 window.addEventListener('resize', fitFocusDigits);
 
-// 50% 크기 콜론의 점 가운데를 숫자 높이 가운데에 맞추기 위한 기준선 올림 값 (콜론 글자 em 기준)
-// 기기마다 고정폭 글꼴이 달라서 실제 글꼴의 숫자·콜론 높이를 재서 계산
-let colonLift = null;
-function measureColonLift(el) {
+// 기기 고정폭 글꼴의 숫자 실제 높이(잉크)·글꼴 줄 높이·50% 콜론 위치를 한 번 재서 보관 (단위: em)
+// inkA/inkD: 숫자 기준선 위/아래 실제 높이, fontA/fontD: 글꼴 줄 높이 위/아래,
+// colonLift: 50% 콜론 점 가운데를 숫자 높이 가운데에 맞추는 기준선 올림 값(콜론 글자 em 기준)
+let digitMetrics = null;
+function measureDigitMetrics(el) {
+  const fallback = { inkA: .62, inkD: 0, fontA: .83, fontD: .3, colonLift: .33 };
   try {
     const cs = getComputedStyle(el);
     const ctx = document.createElement('canvas').getContext('2d');
     ctx.font = `${cs.fontWeight} 100px ${cs.fontFamily}`;
-    const n = ctx.measureText('0'), c = ctx.measureText(':');
-    const digitMid = (n.actualBoundingBoxAscent - n.actualBoundingBoxDescent) / 200; // 숫자 em 기준
-    const colonMid = (c.actualBoundingBoxAscent - c.actualBoundingBoxDescent) / 200; // 콜론 em 기준
+    let inkA = 0, inkD = 0;
+    for (const ch of '0123456789') {
+      const t = ctx.measureText(ch);
+      inkA = Math.max(inkA, t.actualBoundingBoxAscent);
+      inkD = Math.max(inkD, t.actualBoundingBoxDescent);
+    }
+    const ref = ctx.measureText('0'), c = ctx.measureText(':');
+    const fontA = ref.fontBoundingBoxAscent, fontD = ref.fontBoundingBoxDescent;
+    if (!(inkA > 30 && inkA < 120) || !(fontA > 0) || !(fontD >= 0)) return fallback;
+    const digitMid = (ref.actualBoundingBoxAscent - ref.actualBoundingBoxDescent) / 200;
+    const colonMid = (c.actualBoundingBoxAscent - c.actualBoundingBoxDescent) / 200;
     const lift = (digitMid - colonMid * 0.5) / 0.5;
-    return (isFinite(lift) && lift > -0.5 && lift < 1.5) ? +lift.toFixed(3) : 0.33;
-  } catch (e) { return 0.33; }
+    return {
+      inkA: inkA / 100, inkD: Math.max(0, inkD) / 100, fontA: fontA / 100, fontD: fontD / 100,
+      colonLift: (isFinite(lift) && lift > -0.5 && lift < 1.5) ? +lift.toFixed(3) : .33,
+    };
+  } catch (e) { return fallback; }
 }
 
 // 경기 종료 경보 배너: alarmPending 동안 화면 중앙에 크게 표시
