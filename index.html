@@ -315,6 +315,11 @@
       color: #fff;
       transition: color .2s, text-shadow .2s;
     }
+    /* 골키퍼 교체 1분 전부터 파란색 (경기 종료 1분 전 빨간색이 우선) */
+    .timer-digits.gk-warn {
+      color: var(--blue);
+      text-shadow: 0 0 50px rgba(64,196,255,.55);
+    }
     .timer-digits.warn {
       color: var(--red);
       text-shadow: 0 0 50px rgba(255,23,68,.55);
@@ -788,12 +793,12 @@ function soundBrkEnd() {
 }
 // 마지막 10초: 1초마다 짧은 틱
 function soundWarn() { beep(440, .07, .4, 'sine'); }
-// 골키퍼 교체: "띵-동" 두 번 — 경기 종료 경보와 같은 최대 음량(감쇠 없이 유지)
+// 골키퍼 교체: 경기 종료 경보와 같은 소리(2kHz 사각파, 최대 음량), 비프 간격만 1.5배
 function soundGk() {
-  beepSustain(988, .25, 1, 'sine', 0);
-  beepSustain(784, .45, 1, 'sine', .28);
-  beepSustain(988, .25, 1, 'sine', .9);
-  beepSustain(784, .45, 1, 'sine', 1.18);
+  beepSustain(2000, .10, 1, 'square', 0);
+  beepSustain(2000, .10, 1, 'square', .225);
+  beepSustain(2000, .10, 1, 'square', .45);
+  beepSustain(2000, .15, 1, 'square', .675);
 }
 
 // 흐르는 중에 교체 시점에 도달했으면 한 번 알림
@@ -873,8 +878,9 @@ const gkLeft = () => st.timeLeft - Math.round((cfg.gameMin - cfg.gkMin) * 60); /
 // 교체 경보: 누르기 전까지 소리 약 10초, 배너 약 30초 후 자동 종료 (st.gkAlarm = 배너 표시 중)
 let gkLoopId = null;
 let gkRepeatCount = 0;
-const GK_SOUND_REPEATS = 5;  // 약 1.9초 * 5회 ≈ 10초
-const GK_MAX_REPEATS = 16;   // 약 1.9초 * 16회 ≈ 30초
+const GK_INTERVAL_MS = 2400; // 경기 종료 경보 반복 간격(1.6초)의 1.5배
+const GK_SOUND_REPEATS = 4;  // 2.4초 * 4회 ≈ 10초 이내
+const GK_MAX_REPEATS = 12;   // 2.4초 * 12회 ≈ 29초
 
 function startGkAlarm() {
   stopGkLoop();
@@ -884,7 +890,7 @@ function startGkAlarm() {
     if (gkRepeatCount >= GK_MAX_REPEATS) { dismissGk(); return; }
     if (gkRepeatCount < GK_SOUND_REPEATS) soundGk();
     gkRepeatCount++;
-    gkLoopId = setTimeout(tick, 1900);
+    gkLoopId = setTimeout(tick, GK_INTERVAL_MS);
   };
   tick();
 }
@@ -997,7 +1003,8 @@ function render() {
 
   digits.textContent = fmt(st.timeLeft);
   const warn = st.running && st.timeLeft <= 60 && st.timeLeft > 0;
-  digits.className = 'timer-digits' + (warn ? ' warn' : '');
+  const gkWarn = !warn && st.running && gkActive() && gkLeft() > 0 && gkLeft() <= 60;
+  digits.className = 'timer-digits' + (warn ? ' warn' : gkWarn ? ' gk-warn' : '');
 
   switch (st.mode) {
     case 'idle':
@@ -1219,7 +1226,6 @@ function handleMain() {
 
 // ±10초: 현재 흐르는 구간의 남은 시간만 조정 (설정된 경기/쉬는시간 길이는 그대로)
 function handleAdjust(delta) {
-  if (document.body.classList.contains('focus-mode')) peekControls();
   if (transitionTid !== null) return;
   if (st.mode !== 'game' && st.mode !== 'brk') return;
   const next = Math.max(1, st.timeLeft + delta);
@@ -1376,7 +1382,6 @@ function downloadApk() {
 // 크롬 계열 안드로이드 브라우저에서만 강제 회전이 확실히 동작함.
 // iOS Safari 등 미지원 브라우저에서는 풀스크린 큰 숫자만 적용되고
 // 회전은 사용자가 직접 기기를 돌려야 함 (조용히 무시되도록 처리).
-let focusHideTimer = null;
 
 function enterFocusMode() {
   document.body.classList.add('focus-mode');
@@ -1387,7 +1392,7 @@ function enterFocusMode() {
       screen.orientation.lock('landscape').catch(() => {});
     }
   }).catch(() => {});
-  peekControls();
+  setControlsVisible(false); // 큰 숫자만 보이는 상태로 시작, 화면을 탭하면 툴바 표시
 }
 
 function exitFocusMode() {
@@ -1398,13 +1403,12 @@ function exitFocusMode() {
   if (document.fullscreenElement) {
     document.exitFullscreen().catch(() => {});
   }
-  clearTimeout(focusHideTimer);
-  document.querySelector('.bottom-bar').classList.remove('peek');
-  document.body.classList.remove('controls-peek');
+  setControlsVisible(false);
 }
 
+// 집중 모드에서 화면을 탭할 때마다 툴바(하단 버튼 + ±10초) 보이기/숨기기
 function handleFocusTap() {
-  peekControls();
+  setControlsVisible(!document.body.classList.contains('controls-peek'));
 }
 
 function toggleFocusMode() {
@@ -1412,15 +1416,9 @@ function toggleFocusMode() {
   else enterFocusMode();
 }
 
-function peekControls() {
-  const bar = document.querySelector('.bottom-bar');
-  bar.classList.add('peek');
-  document.body.classList.add('controls-peek'); // ±10초 버튼도 함께
-  clearTimeout(focusHideTimer);
-  focusHideTimer = setTimeout(() => {
-    bar.classList.remove('peek');
-    document.body.classList.remove('controls-peek');
-  }, 3000);
+function setControlsVisible(on) {
+  document.querySelector('.bottom-bar').classList.toggle('peek', on);
+  document.body.classList.toggle('controls-peek', on); // ±10초 버튼도 함께
 }
 
 document.addEventListener('fullscreenchange', () => {
