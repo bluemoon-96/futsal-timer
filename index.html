@@ -577,16 +577,29 @@
       display: none;
     }
     body.focus-mode .btn-adj { opacity: 0; pointer-events: none; }
+    body.focus-mode .mode-line { position: relative; }
+    body.focus-mode .btn-adj { position: absolute; top: 0; }
+    body.focus-mode .btn-adj.minus { left: calc(6px + env(safe-area-inset-left, 0px)); }
+    body.focus-mode .btn-adj.plus  { right: calc(6px + env(safe-area-inset-right, 0px)); }
+    /* ±10초가 빠진 자리만큼 팀 배너가 양옆으로 넓어짐 */
+    body.focus-mode.teams-on .mode-line {
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      grid-template-areas: "left badge right";
+    }
 
-    /* 집중 모드에서 툴바가 숨겨져 있는 동안 그 자리(하단)에 GK 교체까지 남은 시간 */
-    .focus-gk { display: none; }
-    body.focus-mode.gk-show .focus-gk {
-      display: block; margin-top: 2px;
-      font-size: 16px; font-weight: 800; color: var(--blue);
-      font-variant-numeric: tabular-nums; line-height: 1.2;
+    /* 집중 모드 하단 정보 줄 (툴바가 숨겨져 있는 동안): GK 교체까지 남은 시간 + 전체 경기 종료 시각 */
+    .focus-info { display: none; }
+    body.focus-mode .focus-info {
+      display: flex; align-items: baseline; justify-content: center; gap: 22px;
+      margin-top: 2px;
+      font-size: 16px; font-weight: 800;
+      font-variant-numeric: tabular-nums; line-height: 1.2; white-space: nowrap;
       transition: opacity .25s;
     }
-    body.focus-mode.gk-show.controls-peek .focus-gk { opacity: 0; }
+    body.focus-mode.controls-peek .focus-info { opacity: 0; }
+    .focus-gk { display: none; color: var(--blue); }
+    body.focus-mode.gk-show .focus-gk { display: inline; }
+    .focus-finish { color: #9ca3af; }
     body.focus-mode.gk-show .timer-digits { font-size: min(80vh, 32vw); }
     body.focus-mode.controls-peek .btn-adj { opacity: 1; pointer-events: all; }
     body.focus-mode .mode-badge { font-size: 19px; min-height: 0; }
@@ -617,15 +630,15 @@
     body.focus-mode.teams-on.gk-show .timer-digits { font-size: min(74vh, 32vw); }
     body.focus-mode .swap-row { font-size: clamp(12px, 3.3vh, 18px); margin-top: 2px; }
     body.focus-mode .swap-pill { padding: 3px 9px; border-radius: 7px; }
-    /* 집중 모드 툴바(±10초·하단 버튼)도 2/3 크기 */
-    body.focus-mode .btn-adj { height: 24px; padding: 0 10px; font-size: 11px; border-radius: 7px; }
+    /* 집중 모드 툴바(±10초·하단 버튼) — 탭했을 때만 떠서 보이므로 크기를 키워도 숫자·팀 배너는 그대로 */
+    body.focus-mode .btn-adj { height: 48px; padding: 0 20px; font-size: 22px; border-radius: 14px; }
     body.focus-mode .btn-reset,
-    body.focus-mode .btn-skip { height: 28px; width: clamp(27px, 7.3vw, 37px); font-size: 12px; border-radius: 8px; }
-    body.focus-mode .btn-main { height: 28px; font-size: 11px; border-radius: 8px; }
+    body.focus-mode .btn-skip { height: 56px; width: clamp(54px, 14.6vw, 74px); font-size: 24px; border-radius: 16px; }
+    body.focus-mode .btn-main { height: 56px; font-size: 22px; border-radius: 16px; }
 
     body.focus-mode .bottom-bar {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
-      padding-top: 5px; padding-bottom: calc(5px + env(safe-area-inset-bottom, 0px));
+      padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
       background: rgba(0,0,0,.75);
       opacity: 0; pointer-events: none;
       transition: opacity .25s;
@@ -881,7 +894,10 @@
     </div>
     <div class="s-next-row" id="s-next-row"><span id="s-next"></span></div>
     <div class="swap-row" id="swap-row"></div>
-    <div class="focus-gk">🧤 GK 교체까지 <span id="focus-gk-time"></span></div>
+    <div class="focus-info">
+      <span class="focus-gk">🧤 GK 교체까지 <span id="focus-gk-time"></span></span>
+      <span class="focus-finish" id="focus-finish">전체 경기 종료 <span id="focus-finish-time"></span></span>
+    </div>
   </div>
 
   <div class="focus-tap-catcher" id="focus-tap-catcher" onclick="handleFocusTap()"></div>
@@ -1333,6 +1349,9 @@ function render() {
   const matchFinishEl = document.getElementById('match-finish-corner');
   matchFinishEl.style.display = finishMs ? '' : 'none';
   if (finishMs) document.getElementById('mfc-time').textContent = fmtClock(finishMs);
+  // 집중 모드 하단 정보 줄의 전체 경기 종료 시각
+  document.getElementById('focus-finish').style.display = finishMs ? '' : 'none';
+  if (finishMs) document.getElementById('focus-finish-time').textContent = fmtClock(finishMs);
 
   renderAlarm();
   renderTrack();
