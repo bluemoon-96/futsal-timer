@@ -644,6 +644,17 @@
       transition: opacity .25s;
     }
     body.focus-mode .bottom-bar.peek { opacity: 1; pointer-events: all; }
+
+    /* 전체화면 툴바의 타임테이블 버튼 (일반 화면은 상단 🗓 사용) — 누르면 열고, 다시 누르면 닫음 */
+    .btn-skip.tt-focus { display: none; }
+    body.focus-mode .btn-skip.tt-focus { display: flex; }
+    body.focus-mode.tt-open .btn-skip.tt-focus { background: #374151; color: #fff; }
+    /* 타임테이블이 열려 있는 동안: 툴바는 팝업(z 170) 위에 계속 보이고, 팝업은 툴바를 가리지 않게 그 위쪽 공간에.
+       경기 종료·골키퍼 교체 경보 배너(z 195)는 여전히 둘 다보다 위 */
+    body.focus-mode.tt-open .bottom-bar { z-index: 175; }
+    body.focus-mode.tt-open .btn-adj { z-index: 176; }
+    body.focus-mode #tt-overlay { padding: 8px 8px calc(86px + env(safe-area-inset-bottom, 0px)); }
+    body.focus-mode .tt-box { max-height: 100%; }
   </style>
 </head>
 <body>
@@ -907,6 +918,7 @@
     <button class="btn-skip hidden" onclick="handlePrev()" id="prev-btn">⏮</button>
     <button class="btn-main"  onclick="handleMain()" id="main-btn">시작</button>
     <button class="btn-skip hidden" onclick="handleSkip()" id="skip-btn">⏭</button>
+    <button class="btn-skip tt-focus" onclick="toggleTimetable()" id="tt-focus-btn" aria-label="타임테이블">🗓</button>
     <button class="btn-skip" onclick="toggleFocusMode()" id="focus-toggle-btn">⛶</button>
   </div>
 
@@ -1226,6 +1238,9 @@ let ttTimer = null;
 
 function openTimetable() {
   document.getElementById('tt-overlay').classList.add('show');
+  document.body.classList.add('tt-open');
+  // 전체화면: 보는 동안 툴바를 자동으로 숨기지 않음 (🗓 를 다시 눌러 닫을 수 있게)
+  if (document.body.classList.contains('focus-mode')) setControlsVisible(true);
   renderTimetable();
   // 경기 수가 많으면 목록이 길어지므로 현재 구간이 보이게 스크롤
   const cur = document.querySelector('#tt-list .tt-row.cur');
@@ -1237,6 +1252,14 @@ function openTimetable() {
 function closeTimetable() {
   clearInterval(ttTimer); ttTimer = null;
   document.getElementById('tt-overlay').classList.remove('show');
+  document.body.classList.remove('tt-open');
+  keepControlsVisible(); // 툴바가 보이는 중이면 다시 3초 뒤 자동 숨김
+}
+
+// 전체화면 툴바의 🗓: 누르면 열고, 다시 누르면 닫음
+function toggleTimetable() {
+  if (document.getElementById('tt-overlay').classList.contains('show')) closeTimetable();
+  else openTimetable();
 }
 
 function renderTimetable() {
@@ -1766,7 +1789,10 @@ function setControlsVisible(on) {
   document.querySelector('.bottom-bar').classList.toggle('peek', on);
   document.body.classList.toggle('controls-peek', on); // ±10초 버튼도 함께
   clearTimeout(focusHideTimer);
-  if (on) focusHideTimer = setTimeout(() => setControlsVisible(false), 3000);
+  // 타임테이블이 열려 있는 동안은 자동 숨김 없음
+  if (on && !document.body.classList.contains('tt-open')) {
+    focusHideTimer = setTimeout(() => setControlsVisible(false), 3000);
+  }
 }
 function keepControlsVisible() {
   if (document.body.classList.contains('controls-peek')) setControlsVisible(true);
