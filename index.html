@@ -703,13 +703,13 @@
   </div>
 </div>
 
-<!-- 경기 종료 경보 (누르면 소리·배너 꺼짐, 약 30초 뒤 자동으로 꺼짐 — 진행에는 영향 없음) -->
+<!-- 경기 종료 경보 (누르면 소리·배너 꺼짐, 소리 약 10초 · 배너 약 30초 뒤 자동으로 꺼짐 — 진행에는 영향 없음) -->
 <div id="alarm-banner" class="big-alert" onclick="dismissAlarm()">
   <div class="big-alert-text">경기 종료</div>
   <div class="big-alert-sub">눌러서 닫기</div>
 </div>
 
-<!-- 골키퍼 교체 경보 (누르면 소리·배너 꺼짐, 소리 약 15초 · 배너 약 30초 뒤 자동으로 꺼짐) -->
+<!-- 골키퍼 교체 경보 (누르면 소리·배너 꺼짐, 소리 약 12초 · 배너 약 30초 뒤 자동으로 꺼짐) -->
 <div id="gk-banner" class="big-alert gk" onclick="dismissGk()">
   <div class="big-alert-text">골키퍼 교체</div>
   <div class="big-alert-sub">눌러서 닫기</div>
@@ -1009,7 +1009,8 @@ function checkGk() {
 // ── 경기 종료 경보 (누르기 전까지 반복, 약 30초 후 소리·배너 자동 종료) ──
 let alarmLoopId = null;
 let alarmRepeatCount = 0;
-const ALARM_MAX_REPEATS = 19; // 약 1.6초 * 19회 ≈ 30초
+const ALARM_MAX_REPEATS = 19;  // 약 1.6초 * 19회 ≈ 30초 후 배너 자동 종료
+const ALARM_SOUND_REPEATS = 7; // 소리는 1.6초 간격 7회 ≈ 10초
 
 function playAlarmBurst() {
   beepSustain(2000, .10, 1, 'square', 0);
@@ -1023,7 +1024,7 @@ function startAlarmLoop() {
   alarmRepeatCount = 0;
   const tick = () => {
     if (alarmRepeatCount >= ALARM_MAX_REPEATS) { alarmLoopId = null; dismissAlarm(); return; }
-    playAlarmBurst();
+    if (alarmRepeatCount < ALARM_SOUND_REPEATS) playAlarmBurst();
     alarmRepeatCount++;
     alarmLoopId = setTimeout(tick, 1600);
   };
@@ -1073,11 +1074,11 @@ const fmtClock = ms => {
 const gkActive = () => cfg.gkOn && st.mode === 'game' && !st.gkDone && cfg.gkMin < cfg.gameMin;
 const gkLeft = () => st.timeLeft - Math.round((cfg.gameMin - cfg.gkMin) * 60); // 교체까지 남은 초
 
-// 교체 경보: 누르기 전까지 소리 약 15초, 배너 약 30초 후 자동 종료 (st.gkAlarm = 배너 표시 중)
+// 교체 경보: 누르기 전까지 소리 약 12초, 배너 약 30초 후 자동 종료 (st.gkAlarm = 배너 표시 중)
 let gkLoopId = null;
 let gkRepeatCount = 0;
 const GK_INTERVAL_MS = 2400; // 경기 종료 경보 반복 간격(1.6초)의 1.5배
-const GK_SOUND_REPEATS = 7;  // 2.4초 간격 7회 ≈ 15초
+const GK_SOUND_REPEATS = 6;  // 2.4초 간격 6회 ≈ 12초
 const GK_MAX_REPEATS = 12;   // 2.4초 * 12회 ≈ 29초
 
 function startGkAlarm() {
