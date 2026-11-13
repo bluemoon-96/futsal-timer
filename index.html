@@ -490,7 +490,8 @@
         background: var(--panel); border-radius: 16px;
         overflow: hidden;
       }
-      body:not(.focus-mode) .btn-tt { display: none; } /* 이미 보이므로 상단 🗓 버튼은 숨김 */
+      /* 타임테이블 카드에 전체 경기 종료가 이미 있으므로 상단 종료 시각·🗓 묶음은 숨김 (가로 화면은 그대로) */
+      body:not(.focus-mode) .match-finish-corner { display: none !important; }
     }
     .tt-inline-head {
       display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
