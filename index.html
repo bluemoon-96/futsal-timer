@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#090909">
+  <meta name="theme-color" content="#FFFFFF">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon.svg">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -203,13 +203,24 @@
     .setting-row.span2 { grid-column: 1 / -1; }
     .setting-info .s-name { font-size: 14px; font-weight: 600; }
     .setting-info .s-desc { font-size: 11px; color: var(--dim); margin-top: 1px; }
+    /* 설정 시트: 경기 방식 2파전/3파전 선택 버튼 */
+    .seg { display: flex; gap: 4px; padding: 4px; background: var(--bg); border-radius: 10px; flex-shrink: 0; }
+    .seg-btn {
+      border: none; background: transparent; color: #9ca3af;
+      font-size: 14px; font-weight: 800; padding: 9px 16px; border-radius: 8px; cursor: pointer;
+    }
+    .seg-btn.active { background: var(--green); color: #000; }
     .team-select {
       background: var(--bg); color: #fff;
       border: 1px solid #374151; border-radius: 10px;
       padding: 10px 6px; font-size: 13px; font-weight: 700;
       min-width: 0; max-width: 70%;
     }
-    @media (max-width: 400px) { .team-select { font-size: 12px; padding: 10px 4px; } }
+    /* 좁은 화면: 팀 순서 선택 상자를 설명 아래 줄 전체 폭으로 (글자 잘림 방지) */
+    @media (max-width: 400px) {
+      .setting-row.team-dep { flex-wrap: wrap; }
+      .team-select { width: 100%; max-width: 100%; font-size: 14px; padding: 10px 8px; }
+    }
     .setting-row.team-dep.dim { opacity: .35; pointer-events: none; }
     .settings-note {
       font-size: 11px; color: var(--dim);
@@ -410,7 +421,7 @@
     .btn-adj.minus { justify-self: start; grid-area: minus; }
     .btn-adj.plus  { justify-self: end; grid-area: plus; }
 
-    /* ── 팀 로테이션: 경기중 배지 좌·우 팀 라벨 (좌측 = ⚽ 선축) ── */
+    /* ── 팀 라벨: 경기중 배지 좌·우 (좌측 = ⚽ 선축) — 2파전·3파전 모두 표시 ── */
     .team-label {
       display: none;
       align-items: center; justify-content: center; gap: 6px;
@@ -468,6 +479,32 @@
     body.teams-on .timer-digits { font-size: min(46dvh, 28vw); }
     .btn-adj.hidden { visibility: hidden; }
 
+    /* ── 세로 화면(전체화면 아님): 시간 영역은 위에 고정, 그 아래 타임테이블을 바로 표시 (목록만 스크롤) ── */
+    .tt-inline { display: none; }
+    @media (orientation: portrait) {
+      body:not(.focus-mode) .timer-wrap { justify-content: flex-start; padding-top: 10px; }
+      body:not(.focus-mode) .tt-inline {
+        display: flex; flex-direction: column;
+        flex: 1; min-height: 0; align-self: stretch;
+        margin: 12px 0 6px;
+        background: var(--panel); border-radius: 16px;
+        overflow: hidden;
+      }
+      body:not(.focus-mode) .btn-tt { display: none; } /* 이미 보이므로 상단 🗓 버튼은 숨김 */
+    }
+    .tt-inline-head {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+      padding: 12px 14px 8px; flex-shrink: 0;
+      border-bottom: 1px solid var(--surf);
+    }
+    .tt-inline-title { font-size: 15px; font-weight: 800; }
+    .tt-inline-total { font-size: 12px; color: var(--dim); white-space: nowrap; }
+    .tt-inline-total b {
+      margin-left: 6px; color: #fff; font-size: 16px; font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+    .tt-inline-list { flex: 1; min-height: 0; padding: 4px 6px 8px; }
+
     /* ── Timetable popup (열려 있어도 타이머는 계속 진행) ── */
     #tt-overlay {
       position: fixed; inset: 0; z-index: 170;
@@ -492,18 +529,22 @@
     }
     .tt-close:active { background: #374151; }
     .tt-list { overflow-y: auto; display: flex; flex-direction: column; }
+    /* 행 = [이름 | 대진 칩 | 시간] — 좌우 열 폭을 고정해 모든 행의 칩이 같은 세로선 기준으로 가운데 정렬 */
     .tt-row {
-      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      display: grid; grid-template-columns: 6.2em minmax(0, 1fr) 6.6em;
+      align-items: center; gap: 6px;
       padding: 9px 8px; border-bottom: 1px solid var(--surf);
       font-size: 14px;
     }
     .tt-name  { font-weight: 700; white-space: nowrap; }
-    .tt-row.brk .tt-name { color: var(--yellow); }
-    .tt-range { color: #d1d5db; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .tt-range { color: #d1d5db; font-variant-numeric: tabular-nums; white-space: nowrap; justify-self: end; }
+    /* 쉬는시간 행은 눈에 덜 띄게 (진행 중일 때만 노란색 강조) */
+    .tt-row.brk { padding-top: 6px; padding-bottom: 6px; }
+    .tt-row.brk .tt-name, .tt-row.brk .tt-range { color: var(--dim); font-weight: 600; font-size: 13px; }
+    .tt-row.cur.brk .tt-name { color: var(--yellow); font-weight: 700; }
     body.teams-on .tt-box { width: min(420px, 95vw); }
-    body.teams-on .tt-row { gap: 8px; }
     .tt-teams {
-      flex: 1; min-width: 0;
+      min-width: 0;
       display: flex; align-items: center; justify-content: center; gap: 3px;
     }
     .tchip {
@@ -514,6 +555,7 @@
     }
     .tchip.wide { min-width: 42px; padding: 0 8px; }
     .tt-vs { font-size: 10px; color: var(--dim); margin: 0 3px; }
+    .tt-vs.blank { visibility: hidden; } /* OUT/IN 사이도 vs 만큼 띄움 */
     .tt-row.past { opacity: .4; }
     .tt-row.cur  { background: rgba(0,230,118,.10); border-radius: 8px; border-bottom-color: transparent; }
     .tt-row.cur.brk { background: rgba(255,202,40,.10); }
@@ -655,6 +697,171 @@
     body.focus-mode.tt-open .btn-adj { z-index: 176; }
     body.focus-mode #tt-overlay { padding: 8px 8px calc(86px + env(safe-area-inset-bottom, 0px)); }
     body.focus-mode .tt-box { max-height: 100%; }
+
+    /* ══════════════════════════════════════════════════════════
+       플랩풋볼 톤 테마
+       - 일반 화면: 흰 바탕 · 옅은 회색 칩 · 검정 네이비 + 라임 강조 · 연한 라임/노랑 알약 배지
+       - 전체화면(.focus-mode): 검은 전광판 · 흰 숫자 · 라임 강조
+       기존(다크) 스타일 위에 덮어쓰는 블록 — 색만 바꾸고 크기·배치는 그대로
+    ══════════════════════════════════════════════════════════ */
+    :root {
+      --ink: #111827;          /* 플랩 검정 네이비 (메인 버튼·선택 칩) */
+      --lime: #A6F05A;         /* 플랩 라임 (검정 위 글씨·강조) */
+      --lime-soft: #E2F9CF;    /* 연한 라임 바탕 */
+      --lime-text: #2E6B12;    /* 연한 라임 위 진한 초록 글씨 */
+      --amber-soft: #FFF4C7;   /* 쉬는시간 연한 노랑 바탕 */
+      --amber-text: #8A6100;
+      --sub: #6B7280;          /* 보조 글씨 */
+      --line: #EEF0F2;         /* 구분선 */
+      --chip: #F2F3F5;         /* 칩·보조 버튼 바탕 */
+      --plab-red: #F04A2A;
+      --plab-blue: #1E6BFF;
+      --team-red: #FF4528;
+      --team-blue: #1A6BFF;
+      --team-yellow: #FFD93D;
+    }
+    html, body { background: #FFFFFF; color: var(--ink); }
+    body { --bg: #FFFFFF; --panel: #FFFFFF; --surf: #F2F3F5; --dim: #8B95A1; }
+    body.focus-mode {
+      background: #0B0D12; color: #fff;
+      --bg: #0B0D12; --panel: #161A22; --surf: #232835; --dim: #7C8594;
+    }
+
+    /* 상단 바 */
+    .app-name { color: var(--ink); font-size: 20px; font-weight: 900; font-style: italic; letter-spacing: 0; text-transform: lowercase;
+      display: flex; align-items: center; gap: 5px; }
+    .app-logo { width: 22px; height: 26px; flex-shrink: 0; }
+    .dot { background: #E3E6EA; }
+    .dot.done { background: #C5CAD1; }
+    .dot.active { background: var(--ink); box-shadow: 0 0 0 2px var(--lime); }
+    .period-text, .mfc-label { color: var(--sub); }
+    .mfc-time { color: var(--ink); }
+    .btn-settings, .btn-tt { background: var(--chip); color: var(--ink); border-radius: 12px; }
+    .btn-settings:active, .btn-tt:active { background: #E5E7EB; }
+
+    /* 경기중/쉬는시간 배지: 연한 알약 */
+    .mode-badge { color: var(--lime-text); }
+    .mode-badge:not(:empty) { background: var(--lime-soft); border-radius: 999px; padding: 4px 14px; letter-spacing: 1px; }
+    .mode-badge.brk { color: var(--amber-text); background: var(--amber-soft); }
+    /* 좁은 세로 화면: 팀 라벨("⚽ YELLOW 6")이 잘리지 않게 배지 알약 여백을 줄이고, 아주 좁으면 글자만 */
+    @media (max-width: 400px) { body.teams-on .mode-badge:not(:empty) { padding: 3px 8px; } }
+    @media (max-width: 340px) { body.teams-on .mode-badge:not(:empty) { padding: 0; background: none; } }
+
+    /* 시간 숫자 */
+    .timer-digits { color: var(--ink); }
+    .timer-digits.warn { color: var(--plab-red); text-shadow: none; }
+    .timer-digits.gk-warn { color: var(--plab-blue); text-shadow: none; }
+
+    /* 상태 줄 */
+    .status-row, .s-next-row, .swap-row { color: var(--sub); }
+    .s-period { color: var(--ink); font-weight: 800; }
+    .status-row.brk .s-period { color: var(--amber-text); }
+    .s-finish-time { color: var(--ink); }
+    .s-gk { color: var(--plab-blue); }
+
+    /* ±10초 */
+    .btn-adj { background: var(--chip); color: var(--ink); border-radius: 12px; }
+    .btn-adj:active { background: #E5E7EB; }
+
+    /* 하단 바: 메인 버튼 = 검정 + 라임 (플랩 선택 칩 스타일), 나머지 = 옅은 회색 */
+    .btn-reset, .btn-skip { background: var(--chip); color: var(--ink); border-radius: 14px; }
+    .btn-reset:active, .btn-skip:active { background: #E5E7EB; }
+    .btn-main { background: var(--ink); color: var(--lime); border-radius: 14px; }
+    .btn-main.brk { background: var(--ink); color: var(--team-yellow); }
+
+    /* 세로 화면 타임테이블 카드 */
+    body:not(.focus-mode) .tt-inline { background: #F7F8FA; }
+    .tt-inline-head { border-bottom-color: var(--line); }
+    .tt-inline-title, .tt-inline-total b { color: var(--ink); }
+    .tt-inline-total { color: var(--sub); }
+
+    /* 타임테이블 행 (세로 화면·팝업 공통, 팝업은 전체화면에서도 흰 카드) */
+    .tt-row { border-bottom-color: var(--line); }
+    .tt-name { color: var(--ink); }
+    .tt-range { color: #374151; }
+    .tt-row.brk .tt-name, .tt-row.brk .tt-range { color: #9AA1AB; }
+    .tt-row.cur { background: var(--lime-soft); }
+    .tt-row.cur .tt-name { color: var(--lime-text); }
+    .tt-row.cur.brk { background: var(--amber-soft); }
+    .tt-row.cur.brk .tt-name { color: var(--amber-text); }
+    .tt-vs { color: #9AA1AB; }
+    #tt-overlay { background: rgba(17,24,39,.45); }
+    .tt-box { background: #FFFFFF; color: var(--ink); box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+    .tt-close { background: var(--chip); color: var(--ink); }
+    .tt-total-label { color: var(--sub); }
+    .tt-total-time { color: var(--ink); }
+
+    /* 설정 시트 */
+    .settings-backdrop { background: rgba(17,24,39,.45); }
+    .settings-sheet { background: #FFFFFF; color: var(--ink); box-shadow: 0 -8px 30px rgba(0,0,0,.12); }
+    .sheet-handle { background: #D9DCE1; }
+    .setting-row { border-bottom-color: var(--line); }
+    .setting-info .s-desc, .settings-note { color: var(--sub); }
+    .stepper { background: var(--chip); }
+    .stepper button { background: #FFFFFF; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+    .stepper button:active { background: #E5E7EB; }
+    .toggle-track { background: #D9DCE1; }
+    .toggle input:checked ~ .toggle-track { background: var(--ink); }
+    .toggle input:checked ~ .toggle-track::before { background: var(--lime); }
+    .btn-apply-sm { background: var(--lime); color: #1F4D0E; }
+    .seg { background: var(--chip); }
+    .seg-btn { color: var(--sub); }
+    .seg-btn.active { background: var(--ink); color: var(--lime); }
+    .team-select { background: #FFFFFF; color: var(--ink); border-color: #D9DCE1; }
+
+    /* 확인 창 · 경기 종료 화면 */
+    #confirm-overlay { background: rgba(17,24,39,.45); }
+    .confirm-box { background: #FFFFFF; color: var(--ink); }
+    .confirm-sub { color: var(--sub); }
+    .confirm-cancel { background: var(--chip); color: var(--ink); }
+    .confirm-ok { background: var(--plab-red); }
+    #end-overlay { background: rgba(255,255,255,.97); color: var(--ink); }
+    .end-sub, .end-summary, .btn-back-end { color: var(--sub); }
+    .btn-new { background: var(--ink); color: var(--lime); }
+
+    /* 경기 종료·골키퍼 교체 경보: 흰 카드 + 색 테두리·글씨 (흰 화면·검은 전광판 모두에서 눈에 띄게) */
+    .big-alert { background: #FFFFFF; border-color: var(--plab-red); box-shadow: 0 16px 50px rgba(0,0,0,.35); }
+    .big-alert .big-alert-text { color: var(--plab-red); }
+    .big-alert.gk { border-color: var(--plab-blue); }
+    .big-alert.gk .big-alert-text { color: var(--plab-blue); }
+    .big-alert-sub { color: var(--sub); }
+
+    /* ±10초 눌림 표시 */
+    .btn-adj { transition: opacity .25s, transform .12s, background-color .12s, color .12s; }
+    body .btn-adj.pressed, body.focus-mode .btn-adj.pressed {
+      background: var(--lime); color: var(--ink); transform: scale(.92);
+    }
+    #adj-pop {
+      position: fixed; left: 50%; top: 46%; z-index: 60;
+      transform: translate(-50%, -50%);
+      padding: 8px 20px; border-radius: 999px;
+      background: var(--ink); color: var(--lime);
+      font-size: 24px; font-weight: 900; font-variant-numeric: tabular-nums; white-space: nowrap;
+      opacity: 0; pointer-events: none;
+    }
+    #adj-pop.show { animation: adj-pop .8s ease-out; }
+    @keyframes adj-pop {
+      0%   { opacity: 0; transform: translate(-50%, -30%) scale(.9); }
+      15%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+      70%  { opacity: 1; transform: translate(-50%, -60%) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -90%) scale(1); }
+    }
+    body.focus-mode #adj-pop { background: var(--lime); color: var(--ink); font-size: 34px; padding: 10px 26px; }
+
+    /* ── 전체화면: 검은 전광판 ── */
+    body.focus-mode .mode-badge,
+    body.focus-mode .mode-badge:not(:empty) { background: none; padding: 0; color: var(--lime); }
+    body.focus-mode .mode-badge.brk { color: var(--team-yellow); }
+    body.focus-mode .timer-digits { color: #FFFFFF; }
+    body.focus-mode .timer-digits.warn { color: #FF4D3D; text-shadow: 0 0 50px rgba(255,77,61,.5); }
+    body.focus-mode .timer-digits.gk-warn { color: #4D94FF; text-shadow: 0 0 50px rgba(77,148,255,.5); }
+    body.focus-mode .btn-adj,
+    body.focus-mode .btn-reset,
+    body.focus-mode .btn-skip { background: #232835; color: #FFFFFF; }
+    body.focus-mode .btn-main { background: var(--lime); color: var(--ink); }
+    body.focus-mode .btn-main.brk { background: var(--team-yellow); color: var(--ink); }
+    body.focus-mode.tt-open .btn-skip.tt-focus { background: var(--lime); color: var(--ink); }
+    body.focus-mode .focus-gk { color: #4D94FF; }
   </style>
 </head>
 <body>
@@ -663,16 +870,19 @@
 <!-- Flash -->
 <div id="flash"></div>
 
+<!-- ±10초 눌림 표시 -->
+<div id="adj-pop"></div>
+
 <!-- 타임테이블 (열려 있어도 타이머는 계속 진행) -->
 <div id="tt-overlay" onclick="if (event.target === this) closeTimetable()">
   <div class="tt-box">
     <div class="tt-head">
-      <div class="tt-title">타임테이블</div>
+      <div class="tt-title" data-i18n="timetable">타임테이블</div>
       <button class="tt-close" onclick="closeTimetable()">✕</button>
     </div>
     <div class="tt-list" id="tt-list"></div>
     <div class="tt-total">
-      <span class="tt-total-label">전체 경기 종료</span>
+      <span class="tt-total-label" data-i18n="finishAll">전체 경기 종료</span>
       <span class="tt-total-time" id="tt-total-time"></span>
     </div>
   </div>
@@ -682,12 +892,12 @@
 <div id="end-overlay">
   <div class="end-trophy">🏆</div>
   <div class="end-info">
-    <div class="end-title">경기 종료</div>
-    <div class="end-sub">수고하셨습니다!</div>
+    <div class="end-title" data-i18n="endTitle">경기 종료</div>
+    <div class="end-sub" data-i18n="endSub">수고하셨습니다!</div>
     <div class="end-summary" id="end-summary"></div>
   </div>
-  <button class="btn-new" onclick="resetAll()">새 경기 시작</button>
-  <button class="btn-back-end" onclick="backFromEnd()">↩ 되돌리기</button>
+  <button class="btn-new" data-i18n="newMatch" onclick="resetAll()">새 경기 시작</button>
+  <button class="btn-back-end" data-i18n="undo" onclick="backFromEnd()">↩ 되돌리기</button>
 </div>
 
 <!-- Confirm reset -->
@@ -697,7 +907,7 @@
     <div class="confirm-title" id="confirm-title-el">초기화 하시겠습니까?</div>
     <div class="confirm-sub" id="confirm-sub-el">진행 중인 경기가 모두 초기화됩니다</div>
     <div class="confirm-btns">
-      <button class="confirm-cancel" onclick="closeConfirm()">취소</button>
+      <button class="confirm-cancel" data-i18n="cancel" onclick="closeConfirm()">취소</button>
       <button class="confirm-ok"     onclick="doConfirm()" id="confirm-ok-btn">확인</button>
     </div>
   </div>
@@ -705,14 +915,14 @@
 
 <!-- 경기 종료 경보 (누르면 소리·배너 꺼짐, 소리 약 10초 · 배너 약 30초 뒤 자동으로 꺼짐 — 진행에는 영향 없음) -->
 <div id="alarm-banner" class="big-alert" onclick="dismissAlarm()">
-  <div class="big-alert-text">경기 종료</div>
-  <div class="big-alert-sub">눌러서 닫기</div>
+  <div class="big-alert-text" data-i18n="alertEnd">경기 종료</div>
+  <div class="big-alert-sub" data-i18n="tapClose">눌러서 닫기</div>
 </div>
 
 <!-- 골키퍼 교체 경보 (누르면 소리·배너 꺼짐, 소리 약 12초 · 배너 약 30초 뒤 자동으로 꺼짐) -->
 <div id="gk-banner" class="big-alert gk" onclick="dismissGk()">
-  <div class="big-alert-text">골키퍼 교체</div>
-  <div class="big-alert-sub">눌러서 닫기</div>
+  <div class="big-alert-text" data-i18n="alertGk">골키퍼 교체</div>
+  <div class="big-alert-sub" data-i18n="tapClose">눌러서 닫기</div>
 </div>
 
 <!-- Settings -->
@@ -720,15 +930,24 @@
 <div class="settings-sheet"   id="settings-sheet">
   <div class="sheet-handle"></div>
   <div class="sheet-header">
-    <div class="sheet-title">타이머 설정</div>
-    <button class="btn-apply-sm" onclick="applySettings()">적용</button>
+    <div class="sheet-title" data-i18n="settingsTitle">타이머 설정</div>
+    <button class="btn-apply-sm" data-i18n="apply" onclick="applySettings()">적용</button>
   </div>
   <div class="settings-grid">
 
+    <div class="setting-row span2">
+      <div class="setting-info">
+        <div class="s-name">Language</div>
+      </div>
+      <div class="seg" id="seg-lang">
+        <button class="seg-btn" data-lang="ko" onclick="pickLang('ko')">한국어</button>
+        <button class="seg-btn" data-lang="en" onclick="pickLang('en')">English</button>
+      </div>
+    </div>
+
     <div class="setting-row">
       <div class="setting-info">
-        <div class="s-name">경기 시간</div>
-        <div class="s-desc">0.5분(30초) 단위</div>
+        <div class="s-name" data-i18n="gameLen">경기 시간</div>
       </div>
       <div class="stepper">
         <button onclick="adj('game',-1)">−</button>
@@ -739,8 +958,7 @@
 
     <div class="setting-row">
       <div class="setting-info">
-        <div class="s-name">쉬는 시간</div>
-        <div class="s-desc">0.5분(30초) 단위</div>
+        <div class="s-name" data-i18n="brkLen">쉬는 시간</div>
       </div>
       <div class="stepper">
         <button onclick="adj('brk',-1)">−</button>
@@ -751,8 +969,7 @@
 
     <div class="setting-row span2">
       <div class="setting-info">
-        <div class="s-name">경기 수</div>
-        <div class="s-desc">전반·후반 등, 제한 없음</div>
+        <div class="s-name" data-i18n="periods">경기 수</div>
       </div>
       <div class="stepper">
         <button onclick="adj('periods',-1)">−</button>
@@ -763,8 +980,7 @@
 
     <div class="setting-row">
       <div class="setting-info">
-        <div class="s-name">골키퍼 교체 알림</div>
-        <div class="s-desc">경기 중 교체 시점에 소리·진동·배너</div>
+        <div class="s-name" data-i18n="gkAlert">골키퍼 교체 알림</div>
       </div>
       <label class="toggle">
         <input type="checkbox" id="toggle-gk" checked>
@@ -774,8 +990,8 @@
 
     <div class="setting-row">
       <div class="setting-info">
-        <div class="s-name">골키퍼 교체</div>
-        <div class="s-desc">경기 시작 후 (분)</div>
+        <div class="s-name" data-i18n="gkAt">골키퍼 교체</div>
+        <div class="s-desc" data-i18n="gkAtDesc">경기 시작 후 (분)</div>
       </div>
       <div class="stepper">
         <button onclick="adj('gk',-1)">−</button>
@@ -786,19 +1002,18 @@
 
     <div class="setting-row span2">
       <div class="setting-info">
-        <div class="s-name">팀 로테이션</div>
-        <div class="s-desc">RED·BLUE·YELLOW 3팀, 쿼터마다 2팀 출전 (즉시 반영)</div>
+        <div class="s-name" data-i18n="format">경기 방식</div>
       </div>
-      <label class="toggle">
-        <input type="checkbox" id="toggle-team" onchange="syncTeamDim()">
-        <div class="toggle-track"></div>
-      </label>
+      <div class="seg" id="seg-team-mode">
+        <button class="seg-btn" data-mode="2" data-i18n="team2" onclick="pickTeamMode(2)">2파전</button>
+        <button class="seg-btn" data-mode="3" data-i18n="team3" onclick="pickTeamMode(3)">3파전</button>
+      </div>
     </div>
 
     <div class="setting-row span2 team-dep">
       <div class="setting-info">
-        <div class="s-name">팀 순서</div>
-        <div class="s-desc">1·2번 팀이 1쿼터 출전</div>
+        <div class="s-name" data-i18n="teamOrder">팀 순서 (3파전)</div>
+        <div class="s-desc" data-i18n="teamOrderDesc">1·2번 팀이 1쿼터 출전 · 2파전은 RED vs BLUE</div>
       </div>
       <select class="team-select" id="sel-team-order">
         <option value="0">RED → BLUE → YELLOW</option>
@@ -810,10 +1025,9 @@
       </select>
     </div>
 
-    <div class="setting-row span2 team-dep">
+    <div class="setting-row span2">
       <div class="setting-info">
-        <div class="s-name">참가 인원</div>
-        <div class="s-desc">팀당 인원 (골키퍼 순번)</div>
+        <div class="s-name" data-i18n="teamSize">팀당 인원</div>
       </div>
       <div class="stepper">
         <button onclick="adj('team',-1)">−</button>
@@ -824,90 +1038,64 @@
 
     <div class="setting-row span2">
       <div class="setting-info">
-        <div class="s-name">자동 진행</div>
-        <div class="s-desc">경기↔쉬는시간 자동 전환 (다음부터 적용)</div>
+        <div class="s-name" data-i18n="soundTest">소리 테스트</div>
       </div>
-      <label class="toggle">
-        <input type="checkbox" id="toggle-auto" checked>
-        <div class="toggle-track"></div>
-      </label>
-    </div>
-
-    <div class="setting-row">
-      <div class="setting-info">
-        <div class="s-name">소리</div>
-        <div class="s-desc">종료 신호음</div>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" id="toggle-sound" checked>
-        <div class="toggle-track"></div>
-      </label>
-    </div>
-
-    <div class="setting-row">
-      <div class="setting-info">
-        <div class="s-name">진동</div>
-        <div class="s-desc">종료 진동</div>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" id="toggle-vibration" checked>
-        <div class="toggle-track"></div>
-      </label>
+      <button class="btn-apply-sm" data-i18n="play" onclick="testSound()">▶ 재생</button>
     </div>
 
     <div class="setting-row span2">
       <div class="setting-info">
-        <div class="s-name">소리 테스트</div>
-        <div class="s-desc">경기 종료음을 미리 들어보세요</div>
+        <div class="s-name" data-i18n="apk">Android 앱 (APK)</div>
+        <div class="s-desc" data-i18n="apkDesc">백그라운드에서도 알림바에 표시되는 네이티브 앱</div>
       </div>
-      <button class="btn-apply-sm" onclick="testSound()">▶ 재생</button>
-    </div>
-
-    <div class="setting-row span2">
-      <div class="setting-info">
-        <div class="s-name">Android 앱 (APK)</div>
-        <div class="s-desc">백그라운드에서도 알림바에 표시되는 네이티브 앱</div>
-      </div>
-      <button class="btn-apply-sm" onclick="downloadApk()">⬇ 다운로드</button>
+      <button class="btn-apply-sm" data-i18n="download" onclick="downloadApk()">⬇ 다운로드</button>
     </div>
 
   </div>
-  <div class="settings-note">※ 시간·경기 수 변경은 다음 경기/쉬는시간부터, 팀 설정은 즉시 반영됩니다</div>
+  <div class="settings-note" data-i18n="settingsNote">※ 시간·경기 수 변경은 다음 경기/쉬는시간부터, 팀 설정은 즉시 반영됩니다</div>
 </div>
 
 <!-- MAIN SCREEN -->
 <div class="screen">
 
   <div class="top-bar">
-    <div class="app-name">⚽<span class="app-name-text"> Futsal</span></div>
+    <div class="app-name"><svg class="app-logo" viewBox="20 17 68 79" aria-hidden="true"><circle cx="54" cy="62" r="28" fill="none" stroke="#A6F05A" stroke-width="7"/><path fill="#A6F05A" d="M47,20h14a4,4 0,0 1,4 4v4h-22v-4a4,4 0,0 1,4 -4z"/><path fill="none" stroke="#111827" stroke-width="5" stroke-linecap="round" d="M54,62 L54,42"/><path fill="none" stroke="#111827" stroke-width="5" stroke-linecap="round" d="M54,62 L70,62"/><circle cx="54" cy="62" r="3.5" fill="#111827"/></svg><span class="app-name-text">futsal</span></div>
     <div class="period-track" id="period-track"></div>
     <div class="match-finish-corner" id="match-finish-corner">
-      <span class="mfc-label">전체 경기 종료</span>
+      <span class="mfc-label" data-i18n="finishAll">전체 경기 종료</span>
       <span class="mfc-time" id="mfc-time"></span>
-      <button class="btn-tt" onclick="openTimetable()" aria-label="타임테이블">🗓</button>
+      <button class="btn-tt" onclick="openTimetable()" aria-label="타임테이블" data-i18n-aria="timetable">🗓</button>
     </div>
     <button class="btn-settings" onclick="openSettings()">⚙</button>
   </div>
 
   <div class="timer-wrap">
     <div class="mode-line">
-      <button class="btn-adj minus hidden" id="adj-minus-btn" onclick="handleAdjust(-10)">−10초</button>
+      <button class="btn-adj minus hidden" id="adj-minus-btn" data-i18n="minus10" onclick="handleAdjust(-10)">−10초</button>
       <div class="team-label left" id="team-left"></div>
       <div class="mode-badge" id="mode-badge"></div>
       <div class="team-label right" id="team-right"></div>
-      <button class="btn-adj plus hidden" id="adj-plus-btn" onclick="handleAdjust(10)">+10초</button>
+      <button class="btn-adj plus hidden" id="adj-plus-btn" data-i18n="plus10" onclick="handleAdjust(10)">+10초</button>
     </div>
     <div class="timer-digits" id="timer-digits">20:00</div>
     <div class="status-row" id="status-row">
       <span class="s-period" id="s-period">경기 준비</span>
-      <span class="s-finish-row" id="s-finish-row">이번 구간 종료 <span class="s-finish-time" id="s-finish-time"></span></span>
-      <span class="s-gk" id="s-gk">🧤 GK 교체까지 <span class="s-gk-time" id="s-gk-time"></span></span>
+      <span class="s-finish-row" id="s-finish-row"><span data-i18n="periodEnds">이번 구간 종료</span> <span class="s-finish-time" id="s-finish-time"></span></span>
+      <span class="s-gk" id="s-gk">🧤 <span data-i18n="gkIn">GK 교체까지</span> <span class="s-gk-time" id="s-gk-time"></span></span>
     </div>
     <div class="s-next-row" id="s-next-row"><span id="s-next"></span></div>
     <div class="swap-row" id="swap-row"></div>
     <div class="focus-info">
-      <span class="focus-gk">🧤 GK 교체까지 <span id="focus-gk-time"></span></span>
-      <span class="focus-finish" id="focus-finish">전체 경기 종료 <span id="focus-finish-time"></span></span>
+      <span class="focus-gk">🧤 <span data-i18n="gkIn">GK 교체까지</span> <span id="focus-gk-time"></span></span>
+      <span class="focus-finish" id="focus-finish"><span data-i18n="finishAll">전체 경기 종료</span> <span id="focus-finish-time"></span></span>
+    </div>
+    <!-- 세로 화면: 타임테이블 바로 표시 (목록만 스크롤, 시간 영역은 고정) -->
+    <div class="tt-inline" id="tt-inline">
+      <div class="tt-inline-head">
+        <span class="tt-inline-title" data-i18n="timetable">타임테이블</span>
+        <span class="tt-inline-total"><span data-i18n="finishAll">전체 경기 종료</span><b id="tt-inline-total"></b></span>
+      </div>
+      <div class="tt-list tt-inline-list" id="tt-inline-list"></div>
     </div>
   </div>
 
@@ -918,7 +1106,7 @@
     <button class="btn-skip hidden" onclick="handlePrev()" id="prev-btn">⏮</button>
     <button class="btn-main"  onclick="handleMain()" id="main-btn">시작</button>
     <button class="btn-skip hidden" onclick="handleSkip()" id="skip-btn">⏭</button>
-    <button class="btn-skip tt-focus" onclick="toggleTimetable()" id="tt-focus-btn" aria-label="타임테이블">🗓</button>
+    <button class="btn-skip tt-focus" onclick="toggleTimetable()" id="tt-focus-btn" aria-label="타임테이블" data-i18n-aria="timetable">🗓</button>
     <button class="btn-skip" onclick="toggleFocusMode()" id="focus-toggle-btn">⛶</button>
   </div>
 
@@ -926,9 +1114,16 @@
 
 <script>
 // ── Config ────────────────────────────────────────────────
-let cfg = { gameMin: 12.5, brkMin: 0.5, periods: 9, autoBreak: true, soundOn: true, vibrationOn: true, gkOn: true, gkMin: 6.5, teamOn: false, teamOrder: 0, teamSize: 6 };
+let cfg = { gameMin: 12.5, brkMin: 0.5, periods: 9, autoBreak: true, soundOn: true, vibrationOn: true, gkOn: true, gkMin: 6.5, teamMode: 2, teamOrder: 0, teamSize: 6, lang: 'ko' };
 function loadCfg() {
-  try { cfg = { ...cfg, ...JSON.parse(localStorage.getItem('futsal-cfg') || '{}') }; } catch(e) {}
+  try {
+    const saved = JSON.parse(localStorage.getItem('futsal-cfg') || '{}');
+    // 이전 버전의 팀 로테이션 ON/OFF → 3파전/2파전으로 이어받음
+    if (saved.teamMode === undefined && saved.teamOn !== undefined) saved.teamMode = saved.teamOn ? 3 : 2;
+    delete saved.teamOn;
+    cfg = { ...cfg, ...saved };
+  } catch(e) {}
+  cfg.autoBreak = cfg.soundOn = cfg.vibrationOn = true; // 예전에 꺼 둔 값이 저장돼 있어도 항상 켜짐
 }
 function saveCfg() { localStorage.setItem('futsal-cfg', JSON.stringify(cfg)); }
 
@@ -1063,11 +1258,25 @@ const vibe = p => cfg.vibrationOn && navigator.vibrate && navigator.vibrate(p);
 const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
 
 const PNAMES = ['전반','후반','3경기','4경기','5경기','6경기','7경기','8경기','9경기','10경기'];
-const pname = n => cfg.periods === 1 ? '경기' : (PNAMES[n-1] || `${n}경기`);
+const pname = n => lang() === 'en' ? (cfg.periods === 1 ? 'Game' : `Game ${n}`)
+  : (cfg.periods === 1 ? '경기' : (PNAMES[n-1] || `${n}경기`));
 const fmtClock = ms => {
   const d = new Date(ms);
   return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 };
+// 설정 시트의 언어 선택 — 바로 미리 보여주고, 설정을 닫을 때 저장
+function pickLang(l) {
+  cfg.lang = l === 'en' ? 'en' : 'ko';
+  applyI18n(cfg.lang);
+}
+
+// 설정 시트의 경기 방식 선택 — 설정을 닫을 때 저장·반영 (경기 중에도 변경 가능, 대진·골키퍼 번호 1쿼터부터 다시 계산)
+function pickTeamMode(n) {
+  cfg.teamMode = n === 3 ? 3 : 2;
+  syncTeamMode(cfg.teamMode);
+  syncLangSeg(lang());
+}
+
 // ── 골키퍼 교체 ───────────────────────────────────────────
 // 교체 시점 = 경기 시작 후 gkMin 분 (시계 기준: 설정 경기시간 − 남은 시간). ±10초 조정도 그대로 반영됨
 // 경기당 한 번만 알림 (st.gkDone), 쉬는시간에는 없음
@@ -1103,20 +1312,125 @@ function dismissGk() {
   render();
 }
 
-// ── 팀 로테이션 ───────────────────────────────────────────
-// 순서상 A·B·C → 쿼터 1,4,7…: 좌 A / 우 B / 휴식 C, 2,5,8…: 좌 C / 우 A / 휴식 B, 3,6,9…: 좌 B / 우 C / 휴식 A
-// 좌측 = ⚽ 선축. 직전 쿼터 휴식 팀이 IN(좌측 선축), 직전 쿼터 우측 팀이 OUT
+// ── 다국어 (한국어 기본 / English) ─────────────────────────
+// 화면 고정 문구는 data-i18n="키" 로 표시해 applyI18n() 이 바꾸고, 상황별 문구는 tr('키', 값…) 로 만듦
+const I18N = {
+  ko: {
+    timetable: '타임테이블', finishAll: '전체 경기 종료', periodEnds: '이번 구간 종료', gkIn: 'GK 교체까지',
+    endTitle: '경기 종료', endSub: '수고하셨습니다!', newMatch: '새 경기 시작', undo: '↩ 되돌리기',
+    cancel: '취소', ok: '확인', go: '이동',
+    alertEnd: '경기 종료', alertGk: '골키퍼 교체', tapClose: '눌러서 닫기',
+    settingsTitle: '타이머 설정', apply: '적용', step05: '0.5분(30초) 단위',
+    gameLen: '경기 시간', brkLen: '쉬는 시간', periods: '경기 수', periodsDesc: '전반·후반 등, 제한 없음',
+    gkAlert: '골키퍼 교체 알림', gkAlertDesc: '경기 중 교체 시점에 소리·진동·배너',
+    gkAt: '골키퍼 교체', gkAtDesc: '경기 시작 후 (분)',
+    format: '경기 방식', formatDesc: '2파전 RED vs BLUE · 3파전 쿼터마다 2팀 출전 (즉시 반영)',
+    team2: '2파전', team3: '3파전',
+    teamOrder: '팀 순서 (3파전)', teamOrderDesc: '1·2번 팀이 1쿼터 출전 · 2파전은 RED vs BLUE',
+    teamSize: '팀당 인원', teamSizeDesc: '팀당 인원 (골키퍼 순번)',
+    autoBreak: '자동 진행', autoBreakDesc: '경기↔쉬는시간 자동 전환 (다음부터 적용)',
+    sound: '소리', soundDesc: '종료 신호음', vib: '진동', vibDesc: '종료 진동',
+    soundTest: '소리 테스트', soundTestDesc: '경기 종료음을 미리 들어보세요', play: '▶ 재생',
+    apk: 'Android 앱 (APK)', apkDesc: '백그라운드에서도 알림바에 표시되는 네이티브 앱', download: '⬇ 다운로드',
+    diag: '앱 종료 기록 (진단용)', noRecords: '기록 없음',
+    settingsNote: '※ 시간·경기 수 변경은 다음 경기/쉬는시간부터, 팀 설정은 즉시 반영됩니다',
+    minus10: '−10초', plus10: '+10초',
+    start: '시작', pause: '일시정지 ⏸', resume: '재개 ▶',
+    min: m => `${m}분`,
+    dur: (m, s) => m && s ? `${m}분 ${s}초` : m ? `${m}분` : `${s}초`,
+    game: n => `${n}경기`, brk: '쉬는시간', skipped: '건너뜀',
+    ready: mode => `경기 준비 · ${mode}파전`, readyNext: (g, b) => `${g} · 쉬는시간 ${b}`,
+    playing: '경기중', focusGame: (p, n) => `${p}/${n} 경기`, gameOf: (p, n) => `${p} / ${n}경기`,
+    nextBrk: b => `다음: 쉬는시간 ${b}`, lastGame: '마지막 경기',
+    gameOver: '경기 종료', periodEnded: name => `${name} 종료`,
+    tapStartBrk: '버튼을 눌러 쉬는시간 시작', startBrk: b => `쉬는시간 시작 (${b})`,
+    brkUpNext: n => `${n}경기 준비 중`, nextGame: g => `다음: 경기시간 ${g}`,
+    brkOver: '쉬는시간 종료', gameReady: n => `${n}경기 준비`,
+    tapStartGame: '버튼을 눌러 경기 시작', startGame: (n, g) => `${n}경기 시작 (${g})`,
+    finished: '경기 끝', totalGames: n => `총 ${n}경기`, summary: (m, n) => `총 ${m}분 진행 · ${n}경기`,
+    resetQ: '초기화 하시겠습니까?', resetSub: '진행 중인 경기가 모두 초기화됩니다',
+    prevQ: '이전 단계로 이동할까요?', prevSub: '현재 진행 상황은 초기화됩니다',
+    skipQ: '다음 단계로 넘어갈까요?', skipSub: '남은 시간은 무시됩니다',
+  },
+  en: {
+    timetable: 'Timetable', finishAll: 'All games end', periodEnds: 'This period ends', gkIn: 'GK change in',
+    endTitle: 'Full Time', endSub: 'Good game!', newMatch: 'New match', undo: '↩ Undo',
+    cancel: 'Cancel', ok: 'OK', go: 'Go',
+    alertEnd: 'TIME UP', alertGk: 'GK CHANGE', tapClose: 'Tap to close',
+    settingsTitle: 'Timer Settings', apply: 'Apply', step05: 'In 0.5 min (30s) steps',
+    gameLen: 'Game length', brkLen: 'Break length', periods: 'Number of games', periodsDesc: 'No limit',
+    gkAlert: 'GK change alert', gkAlertDesc: 'Sound, vibration and banner at change time',
+    gkAt: 'GK change at', gkAtDesc: 'Minutes after kick-off',
+    format: 'Format', formatDesc: 'RED vs BLUE, or 3-team rotation',
+    team2: '2 Teams', team3: '3 Teams',
+    teamOrder: 'Team order (3 Teams)', teamOrderDesc: 'Teams 1 & 2 play game 1 · 2 Teams is RED vs BLUE',
+    teamSize: 'Players per team', teamSizeDesc: 'Used for goalkeeper rotation',
+    autoBreak: 'Auto advance', autoBreakDesc: 'Switch game ↔ break automatically (from next)',
+    sound: 'Sound', soundDesc: 'End signal', vib: 'Vibration', vibDesc: 'End vibration',
+    soundTest: 'Sound test', soundTestDesc: 'Preview the game-end sound', play: '▶ Play',
+    apk: 'Android app (APK)', apkDesc: 'Native app with a live timer in the notification bar', download: '⬇ Download',
+    diag: 'App exit log (diagnostics)', noRecords: 'No records',
+    settingsNote: '※ Time and game-count changes apply from the next game/break; team settings apply immediately',
+    minus10: '−10s', plus10: '+10s',
+    start: 'Start', pause: 'Pause ⏸', resume: 'Resume ▶',
+    min: m => `${m} min`,
+    dur: (m, s) => m && s ? `${m}m ${s}s` : m ? `${m} min` : `${s}s`,
+    game: n => `Game ${n}`, brk: 'Break', skipped: 'Skipped',
+    ready: mode => `Ready · ${mode} Teams`, readyNext: (g, b) => `${g} · Break ${b}`,
+    playing: 'Playing', focusGame: (p, n) => `Game ${p}/${n}`, gameOf: (p, n) => `Game ${p} / ${n}`,
+    nextBrk: b => `Next: Break ${b}`, lastGame: 'Last game',
+    gameOver: 'Game over', periodEnded: name => `${name} over`,
+    tapStartBrk: 'Tap the button to start the break', startBrk: b => `Start break (${b})`,
+    brkUpNext: n => `Game ${n} up next`, nextGame: g => `Next: Game ${g}`,
+    brkOver: 'Break over', gameReady: n => `Game ${n} ready`,
+    tapStartGame: 'Tap the button to start the game', startGame: (n, g) => `Start game ${n} (${g})`,
+    finished: 'Finished', totalGames: n => `${n} game${n === 1 ? '' : 's'}`, summary: (m, n) => `${m} min played · ${n} game${n === 1 ? '' : 's'}`,
+    resetQ: 'Reset the match?', resetSub: 'All progress will be cleared',
+    prevQ: 'Go back one step?', prevSub: 'Current progress will be reset',
+    skipQ: 'Skip to the next step?', skipSub: 'Remaining time will be ignored',
+  },
+};
+const lang = () => cfg.lang === 'en' ? 'en' : 'ko';
+function tr(key, ...args) {
+  const v = I18N[lang()][key] ?? I18N.ko[key];
+  return typeof v === 'function' ? v(...args) : v;
+}
+// 경기 화면용 길이 표기: 12.5(분) → "12분 30초" / "12m 30s", 0.5 → "30초" / "30s"
+const fmtLen = mins => { const sec = Math.round(mins * 60); return tr('dur', Math.floor(sec / 60), sec % 60); };
+let appliedLang = null;
+function applyI18n(l) {
+  const d = I18N[l] || I18N.ko;
+  document.documentElement.lang = l;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const v = d[el.dataset.i18n]; if (typeof v === 'string') el.textContent = v;
+  });
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => {
+    const v = d[el.dataset.i18nAria]; if (typeof v === 'string') el.setAttribute('aria-label', v);
+  });
+  syncLangSeg(l);
+  appliedLang = l;
+}
+function syncLangSeg(l) {
+  document.querySelectorAll('#seg-lang .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === l));
+}
+
+// ── 팀 대진 (cfg.teamMode: 2 = 2파전, 3 = 3파전) ─────────────
+// 3파전: 순서상 A·B·C → 쿼터 1,4,7…: 좌 A / 우 B / 휴식 C, 2,5,8…: 좌 C / 우 A / 휴식 B, 3,6,9…: 좌 B / 우 C / 휴식 A
+//        좌측 = ⚽ 선축. 직전 쿼터 휴식 팀이 IN(좌측 선축), 직전 쿼터 우측 팀이 OUT
+// 2파전: RED vs BLUE 고정, 매 쿼터 진영(좌우)과 선축 교대 — 홀수 쿼터 ⚽RED(좌) vs BLUE(우), 짝수 쿼터 ⚽BLUE(좌) vs RED(우)
 const TEAM_ORDERS = [
   ['RED', 'BLUE', 'YELLOW'], ['RED', 'YELLOW', 'BLUE'], ['BLUE', 'RED', 'YELLOW'],
   ['BLUE', 'YELLOW', 'RED'], ['YELLOW', 'RED', 'BLUE'], ['YELLOW', 'BLUE', 'RED'],
 ];
-function quarterTeams(q) { // [좌, 우, 휴식]
+function quarterTeams(q) { // [좌, 우, 휴식(3파전만)]
+  if (cfg.teamMode !== 3) return q % 2 === 1 ? ['RED', 'BLUE', null] : ['BLUE', 'RED', null];
   const [A, B, C] = TEAM_ORDERS[cfg.teamOrder] || TEAM_ORDERS[0];
   return [[A, B, C], [C, A, B], [B, C, A]][(q - 1) % 3];
 }
 // 쿼터당 골키퍼 구간 수: 교체 알림 ON 이고 교체 시간 < 경기 시간이면 2, 아니면 1
 const gkSegs = () => (cfg.gkOn && cfg.gkMin < cfg.gameMin) ? 2 : 1;
 // 골키퍼 번호 = N − (g mod N), g = 팀이 (쿼터 q, 구간 k) 이전에 뛴 골키퍼 구간 수. 쉬는 쿼터엔 넘어가지 않음
+// (2파전은 쉬는 쿼터가 없어 매 쿼터 이어서 넘어감)
 function gkNumber(team, q, k) {
   let played = 0;
   for (let i = 1; i < q; i++) { const [l, r] = quarterTeams(i); if (l === team || r === team) played++; }
@@ -1145,7 +1459,7 @@ const swapHtml = q => {
 };
 
 function renderTeams() {
-  const on = !!cfg.teamOn && st.mode !== 'done';
+  const on = st.mode !== 'done';
   document.body.classList.toggle('teams-on', on);
   const swap = document.getElementById('swap-row');
   if (!on) { swap.classList.remove('show'); document.body.classList.remove('swap-show'); return; }
@@ -1157,27 +1471,33 @@ function renderTeams() {
   left.innerHTML = teamLabelHtml(L, gkNumber(L, q, k), true);
   right.className = `team-label right ${R}`;
   right.innerHTML = teamLabelHtml(R, gkNumber(R, q, k), false);
-  const between = ['brk', 'wait-brk', 'wait-game'].includes(st.mode) && q <= cfg.periods;
+  // 교체 안내(OUT/IN)는 쉬는 팀이 있는 3파전만
+  const between = cfg.teamMode === 3 && ['brk', 'wait-brk', 'wait-game'].includes(st.mode) && q <= cfg.periods;
   swap.classList.toggle('show', between);
   document.body.classList.toggle('swap-show', between);
   if (between) swap.innerHTML = swapHtml(q);
 }
 
-// 타임테이블 행의 대진 칩: 경기 = 팀 색 골키퍼 번호, 쉬는시간 = OUT/IN
+// 타임테이블 행의 대진 칩: 경기 = 팀 색 골키퍼 번호, 쉬는시간 = OUT/IN (3파전만)
 function ttTeamsHtml(r) {
-  if (!cfg.teamOn) return '';
   if (r.isGame) {
     const [L, R] = quarterTeams(r.period);
     const chips = t => gkNums(t, r.period).map(n => `<span class="tchip ${t}">${n}</span>`).join('');
     return `<span class="tt-teams">${chips(L)}<span class="tt-vs">vs</span>${chips(R)}</span>`;
   }
+  if (cfg.teamMode !== 3) return '<span class="tt-teams"></span>';
+  // 나가는 팀은 항상 직전 경기 오른쪽, 들어오는 팀은 항상 다음 경기 왼쪽 → IN | OUT 순서면 위아래 색이 맞음
   const [IN, , OUT] = quarterTeams(r.period + 1);
-  return `<span class="tt-teams"><span class="tchip wide ${OUT}">OUT</span><span class="tchip wide ${IN}">IN</span></span>`;
+  return `<span class="tt-teams"><span class="tchip wide ${IN}">IN</span><span class="tt-vs blank" aria-hidden="true">vs</span><span class="tchip wide ${OUT}">OUT</span></span>`;
 }
 
-// 설정 시트: 팀 로테이션이 꺼져 있으면 순서·인원 DIM + 조작 불가
-function syncTeamDim() {
-  const on = document.getElementById('toggle-team').checked;
+// 설정 시트: 경기 방식 버튼 표시 + 팀 순서는 3파전에서만 사용 → 2파전이면 DIM + 조작 불가
+function syncTeamMode(mode) {
+  document.querySelectorAll('#seg-team-mode .seg-btn').forEach(b => b.classList.toggle('active', +b.dataset.mode === mode));
+  syncTeamDim(mode);
+}
+function syncTeamDim(mode) {
+  const on = mode === 3;
   document.querySelectorAll('.team-dep').forEach(el => el.classList.toggle('dim', !on));
   document.getElementById('sel-team-order').disabled = !on;
 }
@@ -1185,7 +1505,7 @@ function syncTeamDim() {
 // 쉬는시간 길이 표기: 30초 / 1분 / 1분 30초
 const fmtDur = sec => {
   const m = Math.floor(sec / 60), s = Math.round(sec % 60);
-  return m && s ? `${m}분 ${s}초` : m ? `${m}분` : `${s}초`;
+  return tr('dur', m, s);
 };
 // 경기/쉬는시간은 0.5분(30초) 단위 → 1.5 처럼 소수 한 자리까지 표시
 const fmtMin = m => Number.isInteger(m) ? String(m) : m.toFixed(1);
@@ -1263,27 +1583,58 @@ function toggleTimetable() {
   else openTimetable();
 }
 
-function renderTimetable() {
-  if (!document.getElementById('tt-overlay').classList.contains('show')) return;
-  const rows = buildSchedule();
-  document.getElementById('tt-list').innerHTML = rows.map(r => {
+// 타임테이블 행 HTML (팝업·세로 화면 공용)
+function timetableHtml(rows) {
+  return rows.map(r => {
     // 경기는 시작~종료 시각(시:분), 쉬는시간은 길이만 표시
     let range;
-    if (!r.start)       range = '건너뜀';
+    if (!r.start)       range = tr('skipped');
     else if (!r.isGame) range = fmtDur(cfg.brkMin * 60);
     else if (r.end)     range = `${fmtClock(r.start)} ~ ${fmtClock(r.end)}`;
     else                range = `${fmtClock(r.start)} ~ –`;
     return `<div class="tt-row ${r.status}${r.isGame ? '' : ' brk'}">`
-      + `<span class="tt-name">${r.isGame ? `${r.period}경기` : '쉬는시간'}</span>`
+      + `<span class="tt-name">${r.isGame ? tr('game', r.period) : tr('brk')}</span>`
       + ttTeamsHtml(r)
       + `<span class="tt-range">${range}</span></div>`;
   }).join('');
-  const last = rows[rows.length - 1];
-  document.getElementById('tt-total-time').textContent = (last && last.end) ? fmtClock(last.end) : '–';
 }
+const ttTotalText = rows => {
+  const last = rows[rows.length - 1];
+  return (last && last.end) ? fmtClock(last.end) : '–';
+};
+
+function renderTimetable() {
+  renderTimetableInline();
+  if (!document.getElementById('tt-overlay').classList.contains('show')) return;
+  const rows = buildSchedule();
+  document.getElementById('tt-list').innerHTML = timetableHtml(rows);
+  document.getElementById('tt-total-time').textContent = ttTotalText(rows);
+}
+
+// 세로 화면 타임테이블: 보일 때만 갱신. 진행 중인 행이 바뀔 때만 그 행이 보이게 스크롤
+// (사용자가 목록을 스크롤해 보는 중에는 매초 끌려가지 않게)
+let ttInlineCur = -1;
+function renderTimetableInline() {
+  const box = document.getElementById('tt-inline');
+  if (!box || getComputedStyle(box).display === 'none') { ttInlineCur = -1; return; }
+  const rows = buildSchedule();
+  const list = document.getElementById('tt-inline-list');
+  list.innerHTML = timetableHtml(rows);
+  document.getElementById('tt-inline-total').textContent = ttTotalText(rows);
+  const cur = curSegIdx();
+  if (cur !== ttInlineCur) {
+    ttInlineCur = cur;
+    const el = list.querySelector('.tt-row.cur');
+    if (el) list.scrollTop += el.getBoundingClientRect().top - list.getBoundingClientRect().top - 8;
+  }
+}
+setInterval(renderTimetableInline, 1000); // 일시정지 중에도 예상 시각이 흘러가도록
+window.addEventListener('resize', renderTimetableInline);
 
 // ── Render ────────────────────────────────────────────────
 function render() {
+  // 언어가 바뀌었으면 고정 문구 다시 적용 (설정 시트를 보는 중에는 미리보기 언어 유지)
+  if (appliedLang !== lang() && !document.getElementById('settings-sheet').classList.contains('open')) applyI18n(lang());
   const digits  = document.getElementById('timer-digits');
   const badge   = document.getElementById('mode-badge');
   const mainBtn = document.getElementById('main-btn');
@@ -1300,46 +1651,46 @@ function render() {
     case 'idle':
       badge.textContent = ''; badge.className = 'mode-badge';
       sRow.className = 'status-row';
-      sPeriod.textContent = '경기 준비';
-      sNext.textContent = `${fmtMin(cfg.gameMin)}분 · 쉬는시간 ${fmtMin(cfg.brkMin)}분`;
-      mainBtn.textContent = '시작'; mainBtn.className = 'btn-main';
+      sPeriod.textContent = tr('ready', cfg.teamMode === 3 ? 3 : 2);
+      sNext.textContent = tr('readyNext', fmtLen(cfg.gameMin), fmtLen(cfg.brkMin));
+      mainBtn.textContent = tr('start'); mainBtn.className = 'btn-main';
       break;
 
     case 'game':
       // 전체화면에서는 상태 줄(1 / 9경기)이 숨겨지므로 배지에 경기 번호를 표시
-      badge.textContent = document.body.classList.contains('focus-mode') ? `${st.period}/${cfg.periods} 경기` : '경기중';
+      badge.textContent = document.body.classList.contains('focus-mode') ? tr('focusGame', st.period, cfg.periods) : tr('playing');
       badge.className = 'mode-badge';
       sRow.className = 'status-row';
-      sPeriod.textContent = `${st.period} / ${cfg.periods}경기`;
-      sNext.textContent = st.period < cfg.periods ? `다음: 쉬는시간 ${fmtMin(cfg.brkMin)}분` : '마지막 경기';
-      mainBtn.textContent = st.running ? '일시정지 ⏸' : (st.timeLeft === cfg.gameMin * 60 ? '시작' : '재개 ▶');
+      sPeriod.textContent = tr('gameOf', st.period, cfg.periods);
+      sNext.textContent = st.period < cfg.periods ? tr('nextBrk', fmtLen(cfg.brkMin)) : tr('lastGame');
+      mainBtn.textContent = st.running ? tr('pause') : (st.timeLeft === cfg.gameMin * 60 ? tr('start') : tr('resume'));
       mainBtn.className = 'btn-main';
       break;
 
     case 'wait-brk':
-      badge.textContent = '경기 종료'; badge.className = 'mode-badge';
+      badge.textContent = tr('gameOver'); badge.className = 'mode-badge';
       sRow.className = 'status-row';
-      sPeriod.textContent = `${pname(st.period)} 종료`;
-      sNext.textContent = '버튼을 눌러 쉬는시간 시작';
-      mainBtn.textContent = `쉬는시간 시작 (${fmtMin(cfg.brkMin)}분)`;
+      sPeriod.textContent = tr('periodEnded', pname(st.period));
+      sNext.textContent = tr('tapStartBrk');
+      mainBtn.textContent = tr('startBrk', fmtLen(cfg.brkMin));
       mainBtn.className = 'btn-main';
       break;
 
     case 'brk':
-      badge.textContent = '쉬는시간'; badge.className = 'mode-badge brk';
+      badge.textContent = tr('brk'); badge.className = 'mode-badge brk';
       sRow.className = 'status-row brk';
-      sPeriod.textContent = `${st.period + 1}경기 준비 중`;
-      sNext.textContent = `다음: 경기시간 ${fmtMin(cfg.gameMin)}분`;
-      mainBtn.textContent = st.running ? '일시정지 ⏸' : '재개 ▶';
+      sPeriod.textContent = tr('brkUpNext', st.period + 1);
+      sNext.textContent = tr('nextGame', fmtLen(cfg.gameMin));
+      mainBtn.textContent = st.running ? tr('pause') : tr('resume');
       mainBtn.className = 'btn-main brk';
       break;
 
     case 'wait-game':
-      badge.textContent = '쉬는시간 종료'; badge.className = 'mode-badge brk';
+      badge.textContent = tr('brkOver'); badge.className = 'mode-badge brk';
       sRow.className = 'status-row brk';
-      sPeriod.textContent = `${st.period + 1}경기 준비`;
-      sNext.textContent = '버튼을 눌러 경기 시작';
-      mainBtn.textContent = `${st.period + 1}경기 시작 (${fmtMin(cfg.gameMin)}분)`;
+      sPeriod.textContent = tr('gameReady', st.period + 1);
+      sNext.textContent = tr('tapStartGame');
+      mainBtn.textContent = tr('startGame', st.period + 1, fmtLen(cfg.gameMin));
       mainBtn.className = 'btn-main';
       break;
   }
@@ -1457,7 +1808,7 @@ function renderAlarm() {
 
 function showEndSummary() {
   const mins = matchStartTime ? Math.round((Date.now() - matchStartTime) / 60000) : 0;
-  document.getElementById('end-summary').textContent = `총 ${mins}분 진행 · ${cfg.periods}경기`;
+  document.getElementById('end-summary').textContent = tr('summary', mins, cfg.periods);
 }
 
 function renderTrack() {
@@ -1478,7 +1829,7 @@ function renderTrack() {
   const txt = document.createElement('span');
   txt.className = 'period-text';
   txt.textContent = st.mode === 'idle'
-    ? `총 ${cfg.periods}경기`
+    ? tr('totalGames', cfg.periods)
     : `${st.period} / ${cfg.periods}`;
   wrap.appendChild(txt);
 }
@@ -1586,7 +1937,24 @@ function handleMain() {
 }
 
 // ±10초: 현재 흐르는 구간의 남은 시간만 조정 (설정된 경기/쉬는시간 길이는 그대로)
+// ±10초 눌림 표시: 누른 버튼을 잠깐 라임색으로 + 화면 가운데에 "+10초" 표시
+let adjPressTid = null;
+function showAdjustFeedback(delta) {
+  const btn = document.getElementById(delta > 0 ? 'adj-plus-btn' : 'adj-minus-btn');
+  btn.classList.add('pressed');
+  clearTimeout(adjPressTid);
+  adjPressTid = setTimeout(() => {
+    document.querySelectorAll('.btn-adj.pressed').forEach(b => b.classList.remove('pressed'));
+  }, 220);
+  const pop = document.getElementById('adj-pop');
+  pop.textContent = tr(delta > 0 ? 'plus10' : 'minus10');
+  pop.classList.remove('show');
+  void pop.offsetWidth; // 연속으로 눌러도 애니메이션 다시 시작
+  pop.classList.add('show');
+}
+
 function handleAdjust(delta) {
+  showAdjustFeedback(delta);
   keepControlsVisible();
   if (transitionTid !== null) return;
   if (st.mode !== 'game' && st.mode !== 'brk') return;
@@ -1601,7 +1969,7 @@ function handlePrev() {
   if (transitionTid !== null) return;
   if (st.mode === 'idle') return;
   initAudio();
-  showConfirm('⏮', '이전 단계로 이동할까요?', '현재 진행 상황은 초기화됩니다', '이동', executePrev);
+  showConfirm('⏮', tr('prevQ'), tr('prevSub'), tr('go'), executePrev);
 }
 
 function executePrev() {
@@ -1631,7 +1999,7 @@ function executePrev() {
 function handleSkip() {
   if (transitionTid !== null) return;
   initAudio();
-  showConfirm('⏭', '다음 단계로 넘어갈까요?', '남은 시간은 무시됩니다', '이동', executeSkip);
+  showConfirm('⏭', tr('skipQ'), tr('skipSub'), tr('go'), executeSkip);
 }
 
 function executeSkip() {
@@ -1682,7 +2050,7 @@ function doConfirm() {
 
 function handleReset() {
   if (st.mode === 'idle') return;
-  showConfirm('↺', '초기화 하시겠습니까?', '진행 중인 경기가 모두 초기화됩니다', '확인', doReset);
+  showConfirm('↺', tr('resetQ'), tr('resetSub'), tr('ok'), doReset);
 }
 
 function doReset() {
@@ -1722,22 +2090,22 @@ function openSettings() {
   document.getElementById('val-periods').textContent   = cfg.periods;
   document.getElementById('val-gk').textContent        = fmtMin(cfg.gkMin);
   document.getElementById('toggle-gk').checked         = cfg.gkOn;
-  document.getElementById('toggle-team').checked       = !!cfg.teamOn;
   document.getElementById('sel-team-order').value      = String(cfg.teamOrder || 0);
   document.getElementById('val-team').textContent      = cfg.teamSize;
-  syncTeamDim();
-  document.getElementById('toggle-auto').checked       = cfg.autoBreak;
-  document.getElementById('toggle-sound').checked      = cfg.soundOn;
-  document.getElementById('toggle-vibration').checked  = cfg.vibrationOn;
+  syncTeamMode(cfg.teamMode);
+  syncLangSeg(lang());
+  if (appliedLang !== lang()) applyI18n(lang()); // 설정이 열려 있는 동안은 render 가 언어를 바꾸지 않으므로 열 때 맞춤
   document.getElementById('settings-backdrop').classList.add('open');
   document.getElementById('settings-sheet').classList.add('open');
 }
 
+// 소리 테스트: 실제 경기 종료음(삐삐삐빅)을 같은 최대 음량으로 1회
 function testSound() {
   initAudio();
-  beepRaw(880, .22, 1,   'square',   0);
-  beepRaw(880, .22, 1,   'square',   .35);
-  beepRaw(660, .85, 1,   'sawtooth', .70);
+  beepRawSustain(2000, .10, 1, 'square', 0);
+  beepRawSustain(2000, .10, 1, 'square', .15);
+  beepRawSustain(2000, .10, 1, 'square', .30);
+  beepRawSustain(2000, .15, 1, 'square', .45);
 }
 
 function downloadApk() {
@@ -1810,12 +2178,9 @@ function closeSettings() {
   cfg.periods     = parseInt(document.getElementById('val-periods').textContent);
   cfg.gkMin       = parseFloat(document.getElementById('val-gk').textContent);
   cfg.gkOn        = document.getElementById('toggle-gk').checked;
-  cfg.teamOn      = document.getElementById('toggle-team').checked;
   cfg.teamOrder   = parseInt(document.getElementById('sel-team-order').value);
   cfg.teamSize    = parseInt(document.getElementById('val-team').textContent);
-  cfg.autoBreak   = document.getElementById('toggle-auto').checked;
-  cfg.soundOn     = document.getElementById('toggle-sound').checked;
-  cfg.vibrationOn = document.getElementById('toggle-vibration').checked;
+  cfg.autoBreak = cfg.soundOn = cfg.vibrationOn = true; // 자동 진행·소리·진동은 항상 켜짐 (설정 토글 없음)
   saveCfg();
   if (st.mode === 'idle') st.timeLeft = cfg.gameMin * 60;
   document.getElementById('settings-backdrop').classList.remove('open');
@@ -1829,7 +2194,7 @@ function closeSettings() {
 }
 
 // 경기·쉬는 시간은 0.5분(30초) 단위, 경기 수는 1 단위
-// 경기·쉬는·교체 시간은 0.5분(30초) 단위, 경기 수·참가 인원은 1 단위 (참가 인원 1~20)
+// 경기·쉬는·교체 시간은 0.5분(30초) 단위, 경기 수·팀당 인원은 1 단위 (팀당 인원 1~20)
 function adj(key, dir) {
   const map = { game: 'gameMin', brk: 'brkMin', periods: 'periods', gk: 'gkMin', team: 'teamSize' };
   const step = (key === 'periods' || key === 'team') ? 1 : 0.5;

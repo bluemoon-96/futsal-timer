@@ -4,8 +4,8 @@
   "description": "풋살 경기 타이머",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#090909",
-  "theme_color": "#090909",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FFFFFF",
   "orientation": "any",
   "icons": [
     {
