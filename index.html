@@ -869,7 +869,9 @@
     .stepper-val { min-width: 54px; }
     .stepper button { touch-action: manipulation; -webkit-touch-callout: none; }
     /* 골키퍼 순번 OFF: 타임테이블은 팀 이름 칩 (YELLOW 도 들어가게 작은 글씨·같은 폭) */
-    .tchip.name { min-width: 46px; padding: 0 3px; font-size: 9.5px; letter-spacing: -0.01em; }
+    .tchip.name { font-size: 9.5px; letter-spacing: -0.01em; }
+    /* 팀 이름 칩과 IN/OUT 칩은 같은 크기 (YELLOW 가 들어가는 폭으로 고정) */
+    .tchip.name, .tchip.wide { width: 50px; min-width: 50px; padding: 0; }
     .setting-row.gk-dep.dim { opacity: .35; pointer-events: none; }
 
     /* 팀 순서 고르기: 팀 색 점 + 이름 */
@@ -1093,7 +1095,6 @@
     </div>
 
   </div>
-  <div class="settings-note" data-i18n="settingsNote">※ 시간·경기 수 변경은 다음 경기/쉬는시간부터, 팀 설정은 즉시 반영됩니다</div>
 </div>
 
 <!-- MAIN SCREEN -->
@@ -1373,8 +1374,6 @@ const I18N = {
     sound: '소리', soundDesc: '종료 신호음', vib: '진동', vibDesc: '종료 진동',
     soundTest: '소리 테스트', soundTestDesc: '경기 종료음을 미리 들어보세요', play: '▶ 재생',
     apk: 'Android 앱 (APK)', apkDesc: '백그라운드에서도 알림바에 표시되는 네이티브 앱', download: '⬇ 다운로드',
-    diag: '앱 종료 기록 (진단용)', noRecords: '기록 없음',
-    settingsNote: '※ 시간·경기 수 변경은 다음 경기/쉬는시간부터, 팀 설정은 즉시 반영됩니다',
     minus10: '−10초', plus10: '+10초',
     start: '시작', pause: '일시정지 ⏸', resume: '재개 ▶',
     min: m => `${m}분`,
@@ -1410,8 +1409,6 @@ const I18N = {
     sound: 'Sound', soundDesc: 'End signal', vib: 'Vibration', vibDesc: 'End vibration',
     soundTest: 'Sound test', soundTestDesc: 'Preview the game-end sound', play: '▶ Play',
     apk: 'Android app (APK)', apkDesc: 'Native app with a live timer in the notification bar', download: '⬇ Download',
-    diag: 'App exit log (diagnostics)', noRecords: 'No records',
-    settingsNote: '※ Time and game-count changes apply from the next game/break; team settings apply immediately',
     minus10: '−10s', plus10: '+10s',
     start: 'Start', pause: 'Pause ⏸', resume: 'Resume ▶',
     min: m => `${m} min`,
