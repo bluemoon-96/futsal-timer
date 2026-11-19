@@ -863,6 +863,49 @@
     body.focus-mode .btn-main.brk { background: var(--team-yellow); color: var(--ink); }
     body.focus-mode.tt-open .btn-skip.tt-focus { background: var(--lime); color: var(--ink); }
     body.focus-mode .focus-gk { color: #4D94FF; }
+    /* ── v1.17 ── */
+    /* 시간 숫자: 타임테이블과 같은 글꼴 */
+    .timer-digits { font-family: inherit; font-weight: 800; letter-spacing: -0.02em; }
+    .stepper-val { min-width: 54px; }
+    .stepper button { touch-action: manipulation; -webkit-touch-callout: none; }
+    /* 골키퍼 순번 OFF: 타임테이블은 팀 이름 칩 (YELLOW 도 들어가게 작은 글씨·같은 폭) */
+    .tchip.name { min-width: 46px; padding: 0 3px; font-size: 9.5px; letter-spacing: -0.01em; }
+    .setting-row.gk-dep.dim { opacity: .35; pointer-events: none; }
+
+    /* 팀 순서 고르기: 팀 색 점 + 이름 */
+    .team-pick { position: relative; min-width: 0; flex-shrink: 0; }
+    .tp-btn {
+      display: flex; align-items: center; gap: 10px;
+      background: #FFFFFF; border: 1px solid #D9DCE1; border-radius: 12px;
+      padding: 9px 10px 9px 12px; color: var(--ink); cursor: pointer; font: inherit;
+    }
+    .tp-cur, .tp-opt { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 800; white-space: nowrap; }
+    .tp-team { display: inline-flex; align-items: center; gap: 5px; }
+    .tp-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .tp-dot.RED { background: var(--team-red); }
+    .tp-dot.BLUE { background: var(--team-blue); }
+    .tp-dot.YELLOW { background: var(--team-yellow); box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+    .tp-arrow { color: #9AA1AB; font-weight: 600; margin: 0 2px; }
+    .tp-caret { color: #9AA1AB; font-size: 11px; transition: transform .2s; }
+    .team-pick.open .tp-caret { transform: rotate(180deg); }
+    .tp-list {
+      display: none; position: absolute; right: 0; top: calc(100% + 6px); z-index: 5;
+      min-width: 100%; padding: 6px;
+      background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(17,24,39,.15);
+    }
+    .team-pick.open .tp-list { display: block; }
+    .tp-opt {
+      width: 100%; background: none; border: none; border-radius: 10px;
+      padding: 10px; color: var(--ink); cursor: pointer; font-family: inherit;
+    }
+    .tp-opt.active { background: var(--lime-soft); }
+    .tp-opt.active::after { content: '✓'; margin-left: auto; padding-left: 12px; color: var(--lime-text); font-weight: 900; }
+    @media (max-width: 400px) {
+      .team-pick { width: 100%; }
+      .tp-btn { width: 100%; justify-content: space-between; }
+      .tp-list { left: 0; }
+    }
   </style>
 </head>
 <body>
@@ -979,28 +1022,6 @@
       </div>
     </div>
 
-    <div class="setting-row">
-      <div class="setting-info">
-        <div class="s-name" data-i18n="gkAlert">골키퍼 교체 알림</div>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" id="toggle-gk" checked>
-        <div class="toggle-track"></div>
-      </label>
-    </div>
-
-    <div class="setting-row">
-      <div class="setting-info">
-        <div class="s-name" data-i18n="gkAt">골키퍼 교체</div>
-        <div class="s-desc" data-i18n="gkAtDesc">경기 시작 후 (분)</div>
-      </div>
-      <div class="stepper">
-        <button onclick="adj('gk',-1)">−</button>
-        <div class="stepper-val" id="val-gk">6.5</div>
-        <button onclick="adj('gk',+1)">＋</button>
-      </div>
-    </div>
-
     <div class="setting-row span2">
       <div class="setting-info">
         <div class="s-name" data-i18n="format">경기 방식</div>
@@ -1016,17 +1037,36 @@
         <div class="s-name" data-i18n="teamOrder">팀 순서 (3파전)</div>
         <div class="s-desc" data-i18n="teamOrderDesc">1·2번 팀이 1쿼터 출전 · 2파전은 RED vs BLUE</div>
       </div>
-      <select class="team-select" id="sel-team-order">
-        <option value="0">RED → BLUE → YELLOW</option>
-        <option value="1">RED → YELLOW → BLUE</option>
-        <option value="2">BLUE → RED → YELLOW</option>
-        <option value="3">BLUE → YELLOW → RED</option>
-        <option value="4">YELLOW → RED → BLUE</option>
-        <option value="5">YELLOW → BLUE → RED</option>
-      </select>
+      <input type="hidden" id="sel-team-order" value="0">
+      <div class="team-pick" id="team-pick">
+        <button type="button" class="tp-btn" onclick="toggleTeamPick(event)"><span class="tp-cur" id="tp-cur"></span><span class="tp-caret">▼</span></button>
+        <div class="tp-list" id="tp-list"></div>
+      </div>
     </div>
 
     <div class="setting-row span2">
+      <div class="setting-info">
+        <div class="s-name" data-i18n="gkAlert">골키퍼 로테이션</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="toggle-gk" checked onchange="syncGkRot(this.checked)">
+        <div class="toggle-track"></div>
+      </label>
+    </div>
+
+    <div class="setting-row span2 gk-dep">
+      <div class="setting-info">
+        <div class="s-name" data-i18n="gkAt">골키퍼 교체</div>
+        <div class="s-desc" data-i18n="gkAtDesc">경기 시작 후</div>
+      </div>
+      <div class="stepper">
+        <button onclick="adj('gk',-1)">−</button>
+        <div class="stepper-val" id="val-gk">6.5</div>
+        <button onclick="adj('gk',+1)">＋</button>
+      </div>
+    </div>
+
+    <div class="setting-row span2 gk-dep">
       <div class="setting-info">
         <div class="s-name" data-i18n="teamSize">팀당 인원</div>
       </div>
@@ -1323,8 +1363,8 @@ const I18N = {
     alertEnd: '경기 종료', alertGk: '골키퍼 교체', tapClose: '눌러서 닫기',
     settingsTitle: '타이머 설정', apply: '적용', step05: '0.5분(30초) 단위',
     gameLen: '경기 시간', brkLen: '쉬는 시간', periods: '경기 수', periodsDesc: '전반·후반 등, 제한 없음',
-    gkAlert: '골키퍼 교체 알림', gkAlertDesc: '경기 중 교체 시점에 소리·진동·배너',
-    gkAt: '골키퍼 교체', gkAtDesc: '경기 시작 후 (분)',
+    gkAlert: '골키퍼 로테이션', gkAlertDesc: '골키퍼 순번 + 교체 시점 알림',
+    gkAt: '골키퍼 교체', gkAtDesc: '경기 시작 후',
     format: '경기 방식', formatDesc: '2파전 RED vs BLUE · 3파전 쿼터마다 2팀 출전 (즉시 반영)',
     team2: '2파전', team3: '3파전',
     teamOrder: '팀 순서 (3파전)', teamOrderDesc: '1·2번 팀이 1쿼터 출전 · 2파전은 RED vs BLUE',
@@ -1360,8 +1400,8 @@ const I18N = {
     alertEnd: 'TIME UP', alertGk: 'GK CHANGE', tapClose: 'Tap to close',
     settingsTitle: 'Timer Settings', apply: 'Apply', step05: 'In 0.5 min (30s) steps',
     gameLen: 'Game length', brkLen: 'Break length', periods: 'Number of games', periodsDesc: 'No limit',
-    gkAlert: 'GK change alert', gkAlertDesc: 'Sound, vibration and banner at change time',
-    gkAt: 'GK change at', gkAtDesc: 'Minutes after kick-off',
+    gkAlert: 'GK rotation', gkAlertDesc: 'GK numbers + change alert',
+    gkAt: 'GK change at', gkAtDesc: 'After kick-off',
     format: 'Format', formatDesc: 'RED vs BLUE, or 3-team rotation',
     team2: '2 Teams', team3: '3 Teams',
     teamOrder: 'Team order (3 Teams)', teamOrderDesc: 'Teams 1 & 2 play game 1 · 2 Teams is RED vs BLUE',
@@ -1440,6 +1480,29 @@ function gkNumber(team, q, k) {
 }
 const gkNums = (team, q) => gkSegs() === 2 ? [gkNumber(team, q, 0), gkNumber(team, q, 1)] : [gkNumber(team, q, 0)];
 
+// 설정의 팀 순서 고르기: 팀 색 점 + 이름 목록 (기본 select 대신)
+const teamOrderHtml = i => (TEAM_ORDERS[i] || TEAM_ORDERS[0])
+  .map(t => `<span class="tp-team"><i class="tp-dot ${t}"></i>${t}</span>`).join('<span class="tp-arrow">→</span>');
+function syncTeamPick(v) {
+  document.getElementById('sel-team-order').value = String(v);
+  document.getElementById('tp-cur').innerHTML = teamOrderHtml(v);
+  document.querySelectorAll('.tp-opt').forEach(b => b.classList.toggle('active', +b.dataset.v === v));
+}
+function toggleTeamPick(e) {
+  e.stopPropagation();
+  document.getElementById('team-pick').classList.toggle('open');
+}
+function pickTeamOrder(i) {
+  syncTeamPick(i);
+  document.getElementById('team-pick').classList.remove('open');
+}
+document.getElementById('tp-list').innerHTML = TEAM_ORDERS.map((_, i) =>
+  `<button type="button" class="tp-opt" data-v="${i}" onclick="pickTeamOrder(${i})">${teamOrderHtml(i)}</button>`).join('');
+document.addEventListener('click', e => {
+  const p = document.getElementById('team-pick');
+  if (p.classList.contains('open') && !p.contains(e.target)) p.classList.remove('open');
+});
+
 // 화면에 보여줄 쿼터: 경기 전엔 1쿼터, 경기 중엔 현재 쿼터, 쉬는시간·대기 중엔 다음 쿼터
 function displayQuarter() {
   if (st.mode === 'idle') return 1;
@@ -1452,7 +1515,7 @@ const curGkSeg = () =>
 
 function teamLabelHtml(team, n, left) {
   return (left ? '<span class="tl-ball">⚽</span>' : '')
-    + `<span class="tl-name">${team}</span><span class="tl-gk">${n}</span>`;
+    + `<span class="tl-name">${team}</span>` + (!cfg.gkOn ? '' : `<span class="tl-gk">${n}</span>`);
 }
 const swapHtml = q => {
   const [IN, , OUT] = quarterTeams(q);
@@ -1483,7 +1546,8 @@ function renderTeams() {
 function ttTeamsHtml(r) {
   if (r.isGame) {
     const [L, R] = quarterTeams(r.period);
-    const chips = t => gkNums(t, r.period).map(n => `<span class="tchip ${t}">${n}</span>`).join('');
+    const chips = t => !cfg.gkOn ? `<span class="tchip name ${t}">${t}</span>`
+      : gkNums(t, r.period).map(n => `<span class="tchip ${t}">${n}</span>`).join('');
     return `<span class="tt-teams">${chips(L)}<span class="tt-vs">vs</span>${chips(R)}</span>`;
   }
   if (cfg.teamMode !== 3) return '<span class="tt-teams"></span>';
@@ -1509,7 +1573,8 @@ const fmtDur = sec => {
   return tr('dur', m, s);
 };
 // 경기/쉬는시간은 0.5분(30초) 단위 → 1.5 처럼 소수 한 자리까지 표시
-const fmtMin = m => Number.isInteger(m) ? String(m) : m.toFixed(1);
+// 설정 시간 표기: 분(소수) → "12:30"
+const fmtMS = m => { const sec = Math.round(m * 60); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); };
 
 // 현재 구간이 끝나는 시각 (흐르는 중이면 고정된 endTime, 멈춰 있으면 지금 + 남은 시간)
 const curEndMs = () => st.running ? endTime : Date.now() + st.timeLeft * 1000;
@@ -1590,7 +1655,7 @@ function timetableHtml(rows) {
     // 경기는 시작~종료 시각(시:분), 쉬는시간은 길이만 표시
     let range;
     if (!r.start)       range = tr('skipped');
-    else if (!r.isGame) range = fmtDur(cfg.brkMin * 60);
+    else if (!r.isGame) range = fmtDur(Math.round(cfg.brkMin * 60));
     else if (r.end)     range = `${fmtClock(r.start)} ~ ${fmtClock(r.end)}`;
     else                range = `${fmtClock(r.start)} ~ –`;
     return `<div class="tt-row ${r.status}${r.isGame ? '' : ' brk'}">`
@@ -1664,7 +1729,7 @@ function render() {
       sRow.className = 'status-row';
       sPeriod.textContent = tr('gameOf', st.period, cfg.periods);
       sNext.textContent = st.period < cfg.periods ? tr('nextBrk', fmtLen(cfg.brkMin)) : tr('lastGame');
-      mainBtn.textContent = st.running ? tr('pause') : (st.timeLeft === cfg.gameMin * 60 ? tr('start') : tr('resume'));
+      mainBtn.textContent = st.running ? tr('pause') : (st.timeLeft === Math.round(cfg.gameMin * 60) ? tr('start') : tr('resume'));
       mainBtn.className = 'btn-main';
       break;
 
@@ -1884,7 +1949,7 @@ function onExpire() {
       transitionTid = setTimeout(() => {
         transitionTid = null;
         st.mode = 'wait-brk';
-        st.timeLeft = cfg.brkMin * 60;
+        st.timeLeft = Math.round(cfg.brkMin * 60);
         render();
       }, 1100);
     }
@@ -1897,7 +1962,7 @@ function onExpire() {
       transitionTid = setTimeout(() => {
         transitionTid = null;
         st.mode = 'wait-game';
-        st.timeLeft = cfg.gameMin * 60;
+        st.timeLeft = Math.round(cfg.gameMin * 60);
         render();
       }, 1100);
     }
@@ -1978,20 +2043,20 @@ function executePrev() {
   clearInterval(st.tid); st.running = false;
   if (st.mode === 'game') {
     if (st.period === 1) {
-      st = { mode: 'idle', period: 1, timeLeft: cfg.gameMin * 60, running: false, tid: null, alarmPending: false };
+      st = { mode: 'idle', period: 1, timeLeft: Math.round(cfg.gameMin * 60), running: false, tid: null, alarmPending: false };
       matchStartTime = 0;
       releaseWakeLock(); render();
     } else {
       st.period -= 1;
       if (cfg.autoBreak) { beginBrk(); }
-      else { st.mode = 'wait-brk'; st.timeLeft = cfg.brkMin * 60; render(); }
+      else { st.mode = 'wait-brk'; st.timeLeft = Math.round(cfg.brkMin * 60); render(); }
     }
   } else if (st.mode === 'brk' || st.mode === 'wait-brk') {
     if (cfg.autoBreak) { beginGame(st.period); }
-    else { st.mode = 'game'; st.timeLeft = cfg.gameMin * 60; st.gkDone = false; render(); }
+    else { st.mode = 'game'; st.timeLeft = Math.round(cfg.gameMin * 60); st.gkDone = false; render(); }
   } else if (st.mode === 'wait-game') {
     if (cfg.autoBreak) { beginBrk(); }
-    else { st.mode = 'wait-brk'; st.timeLeft = cfg.brkMin * 60; render(); }
+    else { st.mode = 'wait-brk'; st.timeLeft = Math.round(cfg.brkMin * 60); render(); }
   }
   // 바로 시작하지 않는 구간(대기/일시정지)으로 돌아왔으면 그 구간부터의 실제 기록은 무효
   if (!st.running) { clearSegFrom(curSegIdx()); render(); }
@@ -2014,13 +2079,13 @@ function executeSkip() {
       showEndSummary();
       document.getElementById('end-overlay').classList.add('show');
     } else if (cfg.autoBreak) { beginBrk(); }
-    else { st.mode = 'wait-brk'; st.timeLeft = cfg.brkMin * 60; render(); }
+    else { st.mode = 'wait-brk'; st.timeLeft = Math.round(cfg.brkMin * 60); render(); }
   } else if (st.mode === 'brk') {
     if (cfg.autoBreak) { beginGame(st.period + 1); }
-    else { st.mode = 'wait-game'; st.timeLeft = cfg.gameMin * 60; render(); }
+    else { st.mode = 'wait-game'; st.timeLeft = Math.round(cfg.gameMin * 60); render(); }
   } else if (st.mode === 'wait-brk') {
     if (cfg.autoBreak) { beginGame(st.period + 1); }
-    else { st.mode = 'wait-game'; st.timeLeft = cfg.gameMin * 60; render(); }
+    else { st.mode = 'wait-game'; st.timeLeft = Math.round(cfg.gameMin * 60); render(); }
   } else if (st.mode === 'wait-game') {
     beginGame(st.period + 1);
   }
@@ -2059,7 +2124,7 @@ function doReset() {
   clearInterval(st.tid);
   clearTimeout(transitionTid); transitionTid = null;
   releaseWakeLock();
-  st = { mode: 'idle', period: 1, timeLeft: cfg.gameMin * 60, running: false, tid: null, alarmPending: false };
+  st = { mode: 'idle', period: 1, timeLeft: Math.round(cfg.gameMin * 60), running: false, tid: null, alarmPending: false };
   matchStartTime = 0;
   segActual = {};
   document.getElementById('end-overlay').classList.remove('show');
@@ -2073,7 +2138,7 @@ function backFromEnd() {
   document.getElementById('end-overlay').classList.remove('show');
   st.mode = 'game';
   st.period = cfg.periods;
-  st.timeLeft = cfg.gameMin * 60;
+  st.timeLeft = Math.round(cfg.gameMin * 60);
   st.running = false;
   st.gkDone = false;
   clearSegFrom(curSegIdx());
@@ -2086,12 +2151,14 @@ let wasRunningBeforeSettings = false;
 function openSettings() {
   wasRunningBeforeSettings = st.running;
   if (st.running) { clearInterval(st.tid); st.running = false; render(); }
-  document.getElementById('val-game').textContent      = fmtMin(cfg.gameMin);
-  document.getElementById('val-brk').textContent       = fmtMin(cfg.brkMin);
+  document.getElementById('val-game').textContent      = fmtMS(cfg.gameMin);
+  document.getElementById('val-brk').textContent       = fmtMS(cfg.brkMin);
   document.getElementById('val-periods').textContent   = cfg.periods;
-  document.getElementById('val-gk').textContent        = fmtMin(cfg.gkMin);
+  document.getElementById('val-gk').textContent        = fmtMS(cfg.gkMin);
   document.getElementById('toggle-gk').checked         = cfg.gkOn;
-  document.getElementById('sel-team-order').value      = String(cfg.teamOrder || 0);
+  syncTeamPick(cfg.teamOrder || 0);
+  document.getElementById('team-pick').classList.remove('open');
+  syncGkRot(cfg.gkOn);
   document.getElementById('val-team').textContent      = cfg.teamSize;
   syncTeamMode(cfg.teamMode);
   syncLangSeg(lang());
@@ -2174,16 +2241,14 @@ document.addEventListener('fullscreenchange', () => {
 });
 
 function closeSettings() {
-  cfg.gameMin     = parseFloat(document.getElementById('val-game').textContent);
-  cfg.brkMin      = parseFloat(document.getElementById('val-brk').textContent);
+  // 시간 값은 adj() 가 이미 cfg 에 넣어 둠 (표시가 "12:30" 이라 글자에서 다시 읽지 않음)
   cfg.periods     = parseInt(document.getElementById('val-periods').textContent);
-  cfg.gkMin       = parseFloat(document.getElementById('val-gk').textContent);
   cfg.gkOn        = document.getElementById('toggle-gk').checked;
   cfg.teamOrder   = parseInt(document.getElementById('sel-team-order').value);
   cfg.teamSize    = parseInt(document.getElementById('val-team').textContent);
   cfg.autoBreak = cfg.soundOn = cfg.vibrationOn = true; // 자동 진행·소리·진동은 항상 켜짐 (설정 토글 없음)
   saveCfg();
-  if (st.mode === 'idle') st.timeLeft = cfg.gameMin * 60;
+  if (st.mode === 'idle') st.timeLeft = Math.round(cfg.gameMin * 60);
   document.getElementById('settings-backdrop').classList.remove('open');
   document.getElementById('settings-sheet').classList.remove('open');
   if (wasRunningBeforeSettings) {
@@ -2194,15 +2259,34 @@ function closeSettings() {
   render();
 }
 
-// 경기·쉬는 시간은 0.5분(30초) 단위, 경기 수는 1 단위
-// 경기·쉬는·교체 시간은 0.5분(30초) 단위, 경기 수·팀당 인원은 1 단위 (팀당 인원 1~20)
+// 경기·쉬는·교체 시간은 10초 단위(최소 10초), 경기 수·팀당 인원은 1 단위 (팀당 인원 1~20)
 function adj(key, dir) {
   const map = { game: 'gameMin', brk: 'brkMin', periods: 'periods', gk: 'gkMin', team: 'teamSize' };
-  const step = (key === 'periods' || key === 'team') ? 1 : 0.5;
-  const max = key === 'team' ? 20 : Infinity;
-  const v = Math.min(max, Math.max(step, cfg[map[key]] + dir * step));
-  cfg[map[key]] = v;
-  document.getElementById('val-' + key).textContent = step === 1 ? v : fmtMin(v);
+  const k = map[key], el = document.getElementById('val-' + key);
+  if (key === 'periods' || key === 'team') {
+    const max = key === 'team' ? 20 : Infinity;
+    cfg[k] = Math.min(max, Math.max(1, cfg[k] + dir));
+    el.textContent = cfg[k];
+  } else {
+    cfg[k] = Math.max(10, Math.round(cfg[k] * 60) + dir * 10) / 60;
+    el.textContent = fmtMS(cfg[k]);
+  }
+}
+// 스테퍼 버튼을 길게 누르면 연속 조정 (0.4초 뒤부터, 10번 넘으면 더 빠르게)
+document.querySelectorAll('.stepper button').forEach(b => {
+  let tid = null, n = 0, held = false;
+  const stop = () => { clearTimeout(tid); tid = null; };
+  const tick = () => { held = true; b.click(); n++; tid = setTimeout(tick, n > 10 ? 45 : 110); };
+  b.addEventListener('pointerdown', () => { held = false; n = 0; stop(); tid = setTimeout(tick, 400); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(e => b.addEventListener(e, stop));
+  b.addEventListener('contextmenu', e => e.preventDefault());
+  // 길게 눌렀다 뗄 때 생기는 실제 클릭 1번은 무시 (이미 연속 조정됨)
+  b.addEventListener('click', e => { if (e.isTrusted && held) { held = false; e.stopImmediatePropagation(); } }, true);
+});
+
+// 골키퍼 로테이션 OFF 면 교체 시간·팀당 인원은 쓰이지 않으므로 DIM
+function syncGkRot(on) {
+  document.querySelectorAll('.gk-dep').forEach(el => el.classList.toggle('dim', !on));
 }
 
 function applySettings() {
@@ -2227,7 +2311,7 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js');
 }
 loadCfg();
-st.timeLeft = cfg.gameMin * 60;
+st.timeLeft = Math.round(cfg.gameMin * 60);
 render();
 </script>
 </body>
